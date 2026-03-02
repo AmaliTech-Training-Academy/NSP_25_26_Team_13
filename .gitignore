@@ -1,0 +1,14 @@
+target/
+*.class
+*.jar
+*.log
+.idea/
+*.iml
+.vscode/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.DS_Store
+data-engineering/output/

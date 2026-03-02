@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: logstream-postgres
+    environment:
+      POSTGRES_DB: logstream
+      POSTGRES_USER: logstream
+      POSTGRES_PASSWORD: logstream123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logstream"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: logstream-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logstream
+      SPRING_DATASOURCE_USERNAME: logstream
+      SPRING_DATASOURCE_PASSWORD: logstream123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
