@@ -12,8 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/logs")
 @RequiredArgsConstructor
@@ -30,11 +28,11 @@ public class LogController {
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<Map<String, Object>> ingestBatch(
+    public ResponseEntity<BatchLogEntryResponse> ingestBatch(
             @Valid @RequestBody BatchLogRequest request,
             @AuthenticationPrincipal User user) {
-        int results = ingestionService.ingestBatch(request);
-        return ResponseEntity.ok(Map.of("ingested", results, "logs", results));
+
+        return ResponseEntity.ok(null);
     }
 
     @PostMapping("/search")

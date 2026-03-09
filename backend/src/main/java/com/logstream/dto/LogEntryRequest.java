@@ -13,8 +13,6 @@ public class LogEntryRequest {
     @NotBlank(message = "Service name is required")
     private String serviceName;
 
-    private Instant timestamp;
-
     @NotNull(message = "Log level is required")
     private LogLevel level;
 
