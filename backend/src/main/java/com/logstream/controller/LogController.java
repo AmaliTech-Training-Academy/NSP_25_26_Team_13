@@ -32,11 +32,12 @@ public class LogController {
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<BatchLogEntryResponse> ingestBatch(
+    public ResponseEntity<ApiResponse<BatchLogEntryResponse>> ingestBatch(
             @Valid @RequestBody BatchLogRequest request,
             @AuthenticationPrincipal User user) {
         BatchLogEntryResponse results = ingestionService.ingestBatch(request);
-        return ResponseEntity.ok(null);
+        ApiResponse<BatchLogEntryResponse> apiResponse = ApiResponse.success("Batch log ingestion completed", results);
+        return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
     }
 
     @PostMapping("/search")
