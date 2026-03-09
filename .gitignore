@@ -12,3 +12,4 @@ venv/
 .env
 .DS_Store
 data-engineering/output/
+__init__.py
