@@ -667,3 +667,106 @@ Implement time-series database (InfluxDB/TimescaleDB) for analytics
 Add batch processing for historical error rate trends
 
 Support filtering by date range, service name, or threshold
+
+
+PULL REQUEST SUMMARY
+Title:
+feat: Add common errors analytics endpoint for service error analysis
+
+Overview:
+This PR implements the common errors analytics feature that allows users to retrieve the most frequent error messages for a specific service. The endpoint groups ERROR-level logs by message, counts occurrences, and returns the top N results ordered by frequency.
+
+Changes Made:
+
+Feature additions:
+
+New GET /api/analytics/common-errors endpoint
+
+CommonErrorResponse and CommonErrorsRequest DTOs
+
+Service method to retrieve and rank error messages
+
+Repository queries optimized with indexes
+
+Validation:
+
+Limit parameter: 1-100 (default 10)
+
+Service name required
+
+Optional time range parameters (startTime, endTime)
+
+Returns HTTP 400 for invalid limit values
+
+Testing:
+
+Unit tests for service grouping and ordering logic
+
+Unit tests for controller endpoint validation
+
+Tests cover edge cases (empty results, limit enforcement)
+
+Files Affected:
+
+dto/CommonErrorResponse.java (new)
+
+dto/CommonErrorsRequest.java (new)
+
+service/AnalyticsService.java (modified)
+
+repository/LogEntryRepository.java (modified)
+
+controller/AnalyticsController.java (modified)
+
+service/AnalyticsServiceTest.java (modified)
+
+controller/AnalyticsControllerTest.java (modified)
+
+Testing Instructions:
+
+Start the application
+
+Call the endpoint with required parameters:
+
+GET /api/analytics/common-errors?service=auth-service&limit=5
+
+Copy
+bash
+Verify response format:
+
+{
+"success": true,
+"message": "Common errors retrieved successfully",
+"data": [
+{"message": "Connection timeout", "count": 123},
+{"message": "Invalid credentials", "count": 87}
+]
+}
+
+Copy
+json
+Test with custom time range:
+
+GET /api/analytics/common-errors?service=auth-service&startTime=1609459200000&endTime=1609545600000
+
+Copy
+bash
+Test validation:
+
+GET /api/analytics/common-errors?service=auth-service&limit=101  # Should return 400
+
+Copy
+bash
+Run unit tests: mvn test -Dtest=AnalyticsServiceTest,AnalyticsControllerTest
+
+
+
+
+
+
+
+
+
+
+
+

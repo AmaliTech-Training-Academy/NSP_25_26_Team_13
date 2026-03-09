@@ -18,6 +18,8 @@ import java.util.stream.Collectors;
 public class AnalyticsService {
 
     private final LogEntryRepository logEntryRepository;
+    private static final int DEFAULT_LIMIT = 10;
+    private static final int MAX_LIMIT = 100;
 
     public List<ErrorRateResponse> getErrorRatePerService() {
         Instant since = Instant.now().minus(24, ChronoUnit.HOURS);
@@ -56,37 +58,35 @@ public class AnalyticsService {
         return map;
     }
 
-    public List<CommonErrorResponse> getCommonErrors(CommonErrorsRequest request) {
-        Instant since = request.getStartTime() != null
-            ? Instant.ofEpochMilli(request.getStartTime())
-            : Instant.now().minus(24, ChronoUnit.HOURS);
-        
-        Instant until = request.getEndTime() != null
-            ? Instant.ofEpochMilli(request.getEndTime())
-            : Instant.now();
+    public List<CommonErrorResponse> getCommonErrors(String service, Integer limit,
+                                                     Instant startTime, Instant endTime) {
+        int effectiveLimit = resolveLimit(limit);
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = startTime != null ? startTime : end.minus(24, ChronoUnit.HOURS);
 
-        List<Object[]> results = request.getStartTime() != null
-            ? logEntryRepository.findTopErrorMessagesByServiceAndTimeRange(request.getService(), since, until)
-            : logEntryRepository.findTopErrorMessagesByService(request.getService(), since);
+        List<Object[]> results = logEntryRepository
+                .findCommonErrorsByServiceAndTimeRange(service, start, end);
 
-        return results.stream()
-            .limit(request.getLimit())
-            .map(row -> CommonErrorResponse.builder()
-                .message((String) row[0])
-                .count((Long) row[1])
-                .build())
-            .collect(Collectors.toList());
+        List<CommonErrorResponse> responses = results.stream()
+                .limit(effectiveLimit)
+                .map(row -> CommonErrorResponse.builder()
+                        .message((String) row[0])
+                        .count((Long) row[1])
+                        .build())
+                .collect(Collectors.toList());
+
+        return responses;
     }
 
-    public Map<String, Long> getLogVolume(int hours) {
-        throw new UnsupportedOperationException("Log volume not yet implemented");
+    private int resolveLimit(Integer limit) {
+        if (limit == null) {
+            return DEFAULT_LIMIT;
+        }
+        if (limit < 1 || limit > MAX_LIMIT) {
+            throw new IllegalArgumentException(
+                    "Limit must be between 1 and " + MAX_LIMIT);
+        }
+        return limit;
     }
 
-    public List<Map<String, Object>> getTopErrors(int limit) {
-        throw new UnsupportedOperationException("Top errors not yet implemented");
-    }
-
-    public Map<String, String> getServiceHealth() {
-        throw new UnsupportedOperationException("Service health not yet implemented");
-    }
 }
