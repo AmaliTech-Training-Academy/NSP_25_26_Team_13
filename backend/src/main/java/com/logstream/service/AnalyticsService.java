@@ -1,6 +1,8 @@
 package com.logstream.service;
 
 import com.logstream.dto.ErrorRateResponse;
+import com.logstream.dto.CommonErrorResponse;
+import com.logstream.dto.CommonErrorsRequest;
 import com.logstream.repository.LogEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,28 @@ public class AnalyticsService {
             map.put((String) row[0], (Long) row[1]);
         }
         return map;
+    }
+
+    public List<CommonErrorResponse> getCommonErrors(CommonErrorsRequest request) {
+        Instant since = request.getStartTime() != null
+            ? Instant.ofEpochMilli(request.getStartTime())
+            : Instant.now().minus(24, ChronoUnit.HOURS);
+        
+        Instant until = request.getEndTime() != null
+            ? Instant.ofEpochMilli(request.getEndTime())
+            : Instant.now();
+
+        List<Object[]> results = request.getStartTime() != null
+            ? logEntryRepository.findTopErrorMessagesByServiceAndTimeRange(request.getService(), since, until)
+            : logEntryRepository.findTopErrorMessagesByService(request.getService(), since);
+
+        return results.stream()
+            .limit(request.getLimit())
+            .map(row -> CommonErrorResponse.builder()
+                .message((String) row[0])
+                .count((Long) row[1])
+                .build())
+            .collect(Collectors.toList());
     }
 
     public Map<String, Long> getLogVolume(int hours) {
