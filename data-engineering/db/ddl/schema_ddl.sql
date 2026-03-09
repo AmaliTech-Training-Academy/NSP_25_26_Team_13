@@ -84,3 +84,24 @@ ON log_entries USING BRIN (timestamp); -- BRIN is extremely efficient for large 
 -- For Keyword search in the message field
 CREATE INDEX idx_logs_msg_search 
 ON log_entries USING GIN (message gin_trgm_ops);
+
+-- Metrics Aggregation Tables
+CREATE TABLE log_metrics_hourly (
+    service_name VARCHAR(100) NOT NULL,
+    hour_timestamp TIMESTAMPTZ NOT NULL,
+    total_count BIGINT DEFAULT 0,
+    error_count BIGINT DEFAULT 0,
+    PRIMARY KEY (service_name, hour_timestamp)
+);
+
+CREATE TABLE log_metrics_daily (
+    service_name VARCHAR(100) NOT NULL,
+    day_timestamp TIMESTAMPTZ NOT NULL,
+    total_count BIGINT DEFAULT 0,
+    error_count BIGINT DEFAULT 0,
+    PRIMARY KEY (service_name, day_timestamp)
+);
+
+-- Index for fast analytics queries
+CREATE INDEX idx_metrics_hourly_ts ON log_metrics_hourly (hour_timestamp DESC);
+CREATE INDEX idx_metrics_daily_ts ON log_metrics_daily (day_timestamp DESC);
