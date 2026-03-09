@@ -1,8 +1,9 @@
 """
 LogStream ETL Pipeline - Production Grade
-Focus: Incremental Processing, Health Metrics, and Partition Management
+Focus: Incremental Processing, Health Metrics, Metrics Aggregation, and Partition Management
 """
 import re
+import argparse
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
@@ -49,15 +50,22 @@ def manage_partitions():
         logger.info(f"Verified partition: {tomorrow_part}")
 
 
-def extract_incremental_logs(minutes=15):
-    """Extracts only recent logs to minimize DB load."""
+def extract_logs(start_time, end_time):
+    """Extracts logs within a specific time range."""
     query = text("""
         SELECT id, timestamp, level, message, service_name, source
         FROM log_entries
-        WHERE timestamp >= NOW() - INTERVAL '1 minute' * :mins
+        WHERE timestamp >= :start AND timestamp < :end
     """)
     with engine.connect() as conn:
-        return pd.read_sql(query, conn, params={"mins": minutes})
+        return pd.read_sql(query, conn, params={"start": start_time, "end": end_time})
+
+
+def extract_incremental_logs(minutes=15):
+    """Old method for lookback-based extraction."""
+    end = datetime.utcnow()
+    start = end - timedelta(minutes=minutes)
+    return extract_logs(start, end)
 
 
 def transform_health_metrics(logs_df):
@@ -79,64 +87,111 @@ def transform_health_metrics(logs_df):
     return health
 
 
+def aggregate_metrics(logs_df, period_start, period_type="hour"):
+    """Aggregates counts per service for metrics tables."""
+    if logs_df.empty:
+        return pd.DataFrame()
+    
+    metrics = logs_df.groupby("service_name").agg(
+        total_count=("id", "count"),
+        error_count=("level", lambda x: (x == 'ERROR').sum())
+    ).reset_index()
+    
+    if period_type == "hour":
+        metrics["hour_timestamp"] = period_start
+    else:
+        metrics["day_timestamp"] = period_start
+        
+    return metrics
+
+
 def load_data(df, table_name, method="append"):
     """Loads data using append to preserve history."""
     if df.empty:
         return
     df.to_sql(table_name, engine, if_exists=method, index=False)
+    # Logging row count as required
     logger.info(f"Successfully loaded {len(df)} rows to {table_name}")
 
 
-def run_pipeline():
+def run_aggregation(mode="hourly"):
+    """Runs incremental metrics aggregation for the previous period."""
+    start_time = datetime.utcnow()
+    logger.info(f"Starting {mode} aggregation job at {start_time}")
+    
+    try:
+        now = datetime.utcnow()
+        if mode == "hourly":
+            # Previous full hour (e.g. if run at 1:05, get 0:00-1:00)
+            period_start = (now - timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+            period_end = period_start + timedelta(hours=1)
+            target_table = "log_metrics_hourly"
+            ts_col = "hour_timestamp"
+        else:
+            # Previous full day (e.g. if run Monday 1AM, get all of Sunday)
+            period_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            period_end = period_start + timedelta(days=1)
+            target_table = "log_metrics_daily"
+            ts_col = "day_timestamp"
+            
+        logger.info(f"Extracting logs for range: {period_start} to {period_end}")
+        logs_df = extract_logs(period_start, period_end)
+        
+        if logs_df.empty:
+            logger.info(f"No logs found for the previous {mode} period.")
+        else:
+            metrics_df = aggregate_metrics(logs_df, period_start, "hour" if mode == "hourly" else "day")
+            
+            # Idempotency: Delete existing for this period_start before inserting
+            with engine.begin() as conn:
+                conn.execute(text(f"DELETE FROM {target_table} WHERE {ts_col} = :ts"), {"ts": period_start})
+            
+            load_data(metrics_df, target_table, method="append")
+            
+        logger.info(f"Finished {mode} aggregation job at {datetime.utcnow()}. Duration: {datetime.utcnow() - start_time}")
+        
+    except Exception as e:
+        logger.error(f"{mode.capitalize()} aggregation job failed: {str(e)}")
+
+
+def run_standard_pipeline():
+    """Maintains health dashboard and partitions (standard run)."""
+    start_time = datetime.utcnow()
+    logger.info(f"Starting standard pipeline run at {start_time}")
+    
     try:
         # 1. Maintenance Task — create today's AND tomorrow's partitions
         manage_partitions()
 
-        # 2. Extract last 60 minutes for volume trends
-        logs_df = extract_incremental_logs(minutes=60)
-        if logs_df.empty:
-            logger.info("No new logs found. Skipping transformation.")
-            return
-
-        # 3. Extract last 24 hours specifically for the health dashboard (MVP requirement)
+        # 2. Extract last 24 hours specifically for the health dashboard (MVP requirement)
         health_logs_df = extract_incremental_logs(minutes=1440)
         
-        # 4. Transform & Load Health Dashboard
-        health_df = transform_health_metrics(health_logs_df)
-        
-        # Use TRUNCATE + INSERT inside a transaction to avoid table-not-found errors
-        # that would occur with method="replace" (which DROPs the table briefly)
-        with engine.begin() as conn:
-            try:
-                conn.execute(text("TRUNCATE TABLE service_health_dashboard;"))
-            except Exception:
-                pass  # Table may not exist on first run; to_sql will create it
-        load_data(health_df, "service_health_dashboard", method="append")
-
-        # 5. Load Volume Trends (Idempotent Append)
-        hourly_vol = logs_df.groupby([pd.to_datetime(logs_df["timestamp"]).dt.floor("h"), "level", "service_name"]).size().reset_index(name="count")
-        
-        if not hourly_vol.empty:
-            # 5a. Identify the unique hours in this batch
-            unique_hours = hourly_vol["timestamp"].dt.strftime('%Y-%m-%d %H:%M:%S').unique().tolist()
-            
-            # 5b. Delete existing records for these hours to prevent duplicates (Idempotency)
-            hours_str = ", ".join([f"'{h}'" for h in unique_hours])
-            delete_query = text(f"DELETE FROM analytics_volume_trends WHERE timestamp IN ({hours_str})")
-            
+        if health_logs_df.empty:
+            logger.info("No logs found for health dashboard.")
+        else:
+            health_df = transform_health_metrics(health_logs_df)
             with engine.begin() as conn:
                 try:
-                    conn.execute(delete_query)
-                except Exception as e:
-                    logger.warning(f"Could not cleanly delete existing volume trends (table might be new): {e}")
+                    conn.execute(text("TRUNCATE TABLE service_health_dashboard;"))
+                except Exception:
+                    pass  # Table may not exist on first run
+            load_data(health_df, "service_health_dashboard", method="append")
 
-            # 5c. Append the fresh data
-            load_data(hourly_vol, "analytics_volume_trends", method="append")
-
-        logger.info("Pipeline run successful.")
+        logger.info(f"Finished standard pipeline run at {datetime.utcnow()}. Duration: {datetime.utcnow() - start_time}")
         
     except Exception as e:
-        logger.error(f"Pipeline failed: {str(e)}")
+        logger.error(f"Standard pipeline run failed: {str(e)}")
+
 
 if __name__ == "__main__":
-    run_pipeline()
+    parser = argparse.ArgumentParser(description="LogStream ETL Pipeline")
+    parser.add_argument("--mode", choices=["hourly", "daily", "standard"], default="standard", 
+                        help="Select run mode (default: standard)")
+    args = parser.parse_args()
+    
+    if args.mode == "hourly":
+        run_aggregation(mode="hourly")
+    elif args.mode == "daily":
+        run_aggregation(mode="daily")
+    else:
+        run_standard_pipeline()
