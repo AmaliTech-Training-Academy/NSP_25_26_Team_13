@@ -2,6 +2,8 @@ package com.logstream.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.logstream.dto.BatchLogEntryResponse;
+import com.logstream.dto.BatchLogRequest;
 import com.logstream.dto.LogEntryRequest;
 import com.logstream.dto.LogEntryResponse;
 import com.logstream.model.LogEntry;
@@ -10,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +28,13 @@ public class IngestionService {
         return mapToResponse(saved);
     }
 
-    // TODO: Implement Batch import
+    public BatchLogEntryResponse ingestBatch(BatchLogRequest request) {
+        List<LogEntry> entries = request.getLogs().stream()
+                .map(this::mapToEntity)
+                .collect(Collectors.toList());
+        logEntryRepository.saveAll(entries);
+        return new BatchLogEntryResponse(entries.size());
+    }
 
     private String serializeMetadata(java.util.Map<String, String> metadata) {
         if (metadata == null) return null;

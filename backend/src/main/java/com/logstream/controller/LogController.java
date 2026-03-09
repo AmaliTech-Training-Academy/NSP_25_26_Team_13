@@ -31,7 +31,7 @@ public class LogController {
     public ResponseEntity<BatchLogEntryResponse> ingestBatch(
             @Valid @RequestBody BatchLogRequest request,
             @AuthenticationPrincipal User user) {
-
+        BatchLogEntryResponse results = ingestionService.ingestBatch(request);
         return ResponseEntity.ok(null);
     }
 
