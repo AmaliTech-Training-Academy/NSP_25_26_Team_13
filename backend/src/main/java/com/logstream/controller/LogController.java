@@ -1,5 +1,6 @@
 package com.logstream.controller;
 
+import com.logstream.common.response.ApiResponse;
 import com.logstream.dto.*;
 import com.logstream.model.User;
 import com.logstream.service.AnalyticsService;
@@ -8,11 +9,10 @@ import com.logstream.service.SearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/logs")
@@ -23,18 +23,21 @@ public class LogController {
     private final AnalyticsService analyticsService;
 
     @PostMapping
-    public ResponseEntity<LogEntryResponse> ingestLog(
+    public ResponseEntity<ApiResponse<LogEntryResponse>> ingestLog(
             @Valid @RequestBody LogEntryRequest request,
             @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(ingestionService.ingestLog(request));
+        LogEntryResponse response = ingestionService.ingestLog(request);
+        ApiResponse<LogEntryResponse> apiResponse = ApiResponse.success("Log ingested successfully", response);
+        return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<Map<String, Object>> ingestBatch(
+    public ResponseEntity<ApiResponse<BatchLogEntryResponse>> ingestBatch(
             @Valid @RequestBody BatchLogRequest request,
             @AuthenticationPrincipal User user) {
-        int results = ingestionService.ingestBatch(request);
-        return ResponseEntity.ok(Map.of("ingested", results, "logs", results));
+        BatchLogEntryResponse results = ingestionService.ingestBatch(request);
+        ApiResponse<BatchLogEntryResponse> apiResponse = ApiResponse.success("Batch log ingestion completed", results);
+        return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
     }
 
     @PostMapping("/search")

@@ -1,8 +1,8 @@
 spring:
     datasource:
         url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/logstream}
-        username: ${SPRING_DATASOURCE_USERNAME:postgres}
-        password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+        username: ${SPRING_DATASOURCE_USERNAME:logstream}
+        password: ${SPRING_DATASOURCE_PASSWORD:logstream123}
     jpa:
         hibernate:
             ddl-auto: update
