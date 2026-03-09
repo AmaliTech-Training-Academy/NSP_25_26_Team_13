@@ -13,6 +13,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -23,21 +25,27 @@ public class AuthService {
     private final JwtService jwtService;
 
     public AuthResponse register(RegisterRequest request) {
+        if (userRepository.existsByEmailIgnoreCase(request.getEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName())
+                .name(request.getFullName())
                 .role(Role.USER).build();
         userRepository.save(user);
         return generateTokenResponse(user);
     }
 
     public AuthResponse login(AuthRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                 request.getEmail(), request.getPassword())
         );
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setLastLogin(Instant.now());
+        userRepository.save(user);
         return generateTokenResponse(user);
     }
 
