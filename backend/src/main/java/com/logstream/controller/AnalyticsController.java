@@ -2,13 +2,15 @@ package com.logstream.controller;
 
 import com.logstream.common.response.ApiResponse;
 import com.logstream.dto.ErrorRateResponse;
+import com.logstream.dto.CommonErrorResponse;
+import com.logstream.dto.CommonErrorsRequest;
 import com.logstream.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import java.util.List;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/analytics")
@@ -21,5 +23,12 @@ public class AnalyticsController {
     public ResponseEntity<ApiResponse<List<ErrorRateResponse>>> getErrorRate() {
         List<ErrorRateResponse> response = analyticsService.getErrorRatePerService();
         return ResponseEntity.ok(ApiResponse.success("Error rates retrieved successfully", response));
+    }
+
+    @GetMapping("/common-errors")
+    public ResponseEntity<ApiResponse<List<CommonErrorResponse>>> getCommonErrors(
+        @Valid CommonErrorsRequest request) {
+        List<CommonErrorResponse> response = analyticsService.getCommonErrors(request);
+        return ResponseEntity.ok(ApiResponse.success("Common errors retrieved successfully", response));
     }
 }
