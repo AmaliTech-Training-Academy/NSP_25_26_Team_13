@@ -42,4 +42,9 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
     @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.createdAt >= :since GROUP BY l.serviceName")
     List<Object[]> countByServiceAndCreatedAtAfter(@Param("since") Instant since);
 
+    @Query("SELECT l.message, COUNT(l) as count FROM LogEntry l WHERE l.level = 'ERROR' AND l.serviceName = :service AND l.createdAt >= :since GROUP BY l.message ORDER BY count DESC")
+    List<Object[]> findTopErrorMessagesByService(@Param("service") String service, @Param("since") Instant since);
+
+    @Query("SELECT l.message, COUNT(l) as count FROM LogEntry l WHERE l.level = 'ERROR' AND l.serviceName = :service AND l.createdAt >= :startTime AND l.createdAt <= :endTime GROUP BY l.message ORDER BY count DESC")
+    List<Object[]> findTopErrorMessagesByServiceAndTimeRange(@Param("service") String service, @Param("startTime") Instant startTime, @Param("endTime") Instant endTime);
 }
