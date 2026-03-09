@@ -3,18 +3,18 @@ package com.logstream.controller;
 import com.logstream.common.response.ApiResponse;
 import com.logstream.dto.ErrorRateResponse;
 import com.logstream.dto.CommonErrorResponse;
+import com.logstream.dto.CommonErrorsRequest;
+import com.logstream.dto.LogVolumeResponse;
+import com.logstream.dto.LogVolumeRequest;
 import com.logstream.service.AnalyticsService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.Instant;
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -33,12 +33,18 @@ public class AnalyticsController {
     }
 
     @GetMapping("/common-errors")
+    @Operation(summary = "Get top error messages", description = "Returns most frequent error messages for a service")
     public ResponseEntity<ApiResponse<List<CommonErrorResponse>>> getCommonErrors(
-            @Parameter(description = "Service name", required = true, example = "auth-service") @RequestParam String service,
-            @Parameter(description = "Max number of results (1-100, default 10)", example = "10") @RequestParam(required = false) Integer limit,
-            @Parameter(description = "Start time (ISO-8601)", example = "2026-03-03T00:00:00Z") @RequestParam(required = false) Instant startTime,
-            @Parameter(description = "End time (ISO-8601)", example = "2026-03-04T00:00:00Z") @RequestParam(required = false) Instant endTime) {
-        List<CommonErrorResponse> response = analyticsService.getCommonErrors(service, limit, startTime,endTime);
+        @Valid CommonErrorsRequest request) {
+        List<CommonErrorResponse> response = analyticsService.getCommonErrors(request);
         return ResponseEntity.ok(ApiResponse.success("Common errors retrieved successfully", response));
+    }
+
+    @GetMapping("/volume")
+    @Operation(summary = "Get log volume by time", description = "Returns log volume aggregated by hour or day")
+    public ResponseEntity<ApiResponse<List<LogVolumeResponse>>> getLogVolume(
+        @Valid LogVolumeRequest request) {
+        List<LogVolumeResponse> response = analyticsService.getLogVolume(request);
+        return ResponseEntity.ok(ApiResponse.success("Log volume retrieved successfully", response));
     }
 }
