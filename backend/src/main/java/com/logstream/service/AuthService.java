@@ -1,18 +1,17 @@
 package com.logstream.service;
 
+import com.logstream.config.JwtService;
 import com.logstream.dto.AuthRequest;
 import com.logstream.dto.AuthResponse;
+import com.logstream.dto.RegisterRequest;
 import com.logstream.model.Role;
 import com.logstream.model.User;
 import com.logstream.repository.UserRepository;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
 
 @Service
 @RequiredArgsConstructor
@@ -20,35 +19,30 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    @Value("${jwt.secret}") private String jwtSecret;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
-    public AuthResponse register(AuthRequest request) {
+    public AuthResponse register(RegisterRequest request) {
         User user = User.builder()
-            .email(request.getEmail())
-            .password(passwordEncoder.encode(request.getPassword()))
-            .fullName(request.getFullName())
-            .role(Role.USER).build();
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName())
+                .role(Role.USER).build();
         userRepository.save(user);
         return generateTokenResponse(user);
     }
 
     public AuthResponse login(AuthRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-            .orElseThrow(() -> new RuntimeException("User not found"));
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
-        }
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                request.getEmail(), request.getPassword())
+        );
         return generateTokenResponse(user);
     }
 
     private AuthResponse generateTokenResponse(User user) {
-        String token = Jwts.builder()
-            .subject(user.getEmail())
-            .claim("role", user.getRole().name())
-            .issuedAt(new Date())
-            .expiration(new Date(System.currentTimeMillis() + 86400000))
-            .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
-            .compact();
+        String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
         return AuthResponse.builder().token(token).email(user.getEmail()).role(user.getRole().name()).build();
     }
 }
