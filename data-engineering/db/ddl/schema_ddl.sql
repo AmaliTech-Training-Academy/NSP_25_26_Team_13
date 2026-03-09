@@ -65,6 +65,7 @@ CREATE TABLE retention_policies (
 );
 
 
+
 -- Indexing for authentication
 -- When a user logs in, the Java backend will query 'WHERE email = ?'
 CREATE INDEX idx_users_email ON users (email);
