@@ -10,6 +10,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Map;
 
 
 @Slf4j
@@ -32,7 +33,8 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
         ErrorResponse errorResponse = new ErrorResponse(
                 "Invalid or expired token",
-                HttpServletResponse.SC_UNAUTHORIZED
+                HttpServletResponse.SC_UNAUTHORIZED,
+                Map.of()
         );
 
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
