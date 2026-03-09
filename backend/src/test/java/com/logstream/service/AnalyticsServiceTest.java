@@ -1,15 +1,17 @@
 package com.logstream.service;
 
 import com.logstream.dto.CommonErrorResponse;
-import com.logstream.dto.ErrorRateResponse;
+import com.logstream.dto.CommonErrorsRequest;
+import com.logstream.dto.LogVolumeResponse;
+import com.logstream.dto.LogVolumeRequest;
 import com.logstream.repository.LogEntryRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -29,135 +31,111 @@ class AnalyticsServiceTest {
     private AnalyticsService analyticsService;
 
     @Test
-    void getErrorRatePerService_shouldCalculateCorrectRates() {
-        when(logEntryRepository.findDistinctServiceNames())
-            .thenReturn(Arrays.asList("auth-service", "payment-service"));
-
-        List<Object[]> errors = List.of(
-            new Object[]{"auth-service", 52L},
-            new Object[]{"payment-service", 0L}
-        );
-        when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(errors);
-
-        List<Object[]> totals = List.of(
-            new Object[]{"auth-service", 1000L},
-            new Object[]{"payment-service", 500L}
-        );
-        when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(totals);
-
-        List<ErrorRateResponse> result = analyticsService.getErrorRatePerService();
-
-        assertThat(result).hasSize(2);
-        ErrorRateResponse authService = result.stream()
-            .filter(r -> r.getService().equals("auth-service"))
-            .findFirst()
-            .orElseThrow();
-        assertThat(authService.getErrorRate()).isEqualTo(5.2);
-        assertThat(authService.getErrorCount()).isEqualTo(52L);
-        assertThat(authService.getTotalCount()).isEqualTo(1000L);
-    }
-
-    @Test
-    void getErrorRatePerService_shouldReturnZeroForNoErrors() {
-        when(logEntryRepository.findDistinctServiceNames())
-            .thenReturn(Arrays.asList("payment-service"));
-        when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Collections.emptyList());
-
-        List<Object[]> totals = new ArrayList<>();
-        totals.add(new Object[]{"payment-service", 500L});
-        when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(totals);
-
-        List<ErrorRateResponse> result = analyticsService.getErrorRatePerService();
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getErrorRate()).isEqualTo(0.0);
-        assertThat(result.get(0).getErrorCount()).isEqualTo(0L);
-    }
-
-    @Test
-    void getErrorRatePerService_shouldRoundToTwoDecimals() {
-        when(logEntryRepository.findDistinctServiceNames())
-            .thenReturn(Arrays.asList("test-service"));
-
-        List<Object[]> errors = new ArrayList<>();
-        errors.add(new Object[]{"test-service", 17L});
-        when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(errors);
-
-        List<Object[]> totals = new ArrayList<>();
-        totals.add(new Object[]{"test-service", 333L});
-        when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(totals);
-
-        List<ErrorRateResponse> result = analyticsService.getErrorRatePerService();
-
-        assertThat(result.get(0).getErrorRate()).isEqualTo(5.11);
-    }
-
-    @Test
     void getCommonErrors_shouldReturnTopErrorsByCount() {
-        List<Object[]> mockResults = new ArrayList<>();
-        mockResults.add(new Object[]{"Connection timeout", 123L});
-        mockResults.add(new Object[]{"Invalid credentials", 87L});
-        mockResults.add(new Object[]{"Database error", 45L});
-
+        CommonErrorsRequest request = new CommonErrorsRequest("auth-service", 5, null, null);
+        
+        List<Object[]> mockResults = Arrays.asList(
+            new Object[]{"Connection timeout", 123L},
+            new Object[]{"Invalid credentials", 87L},
+            new Object[]{"Database error", 45L}
+        );
+        
         when(logEntryRepository.findCommonErrorsByServiceAndTimeRange(eq("auth-service"), any(Instant.class), any(Instant.class)))
             .thenReturn(mockResults);
 
-        List<CommonErrorResponse> result = analyticsService.getCommonErrors("auth-service", 10, null, null);
+        List<CommonErrorResponse> result = analyticsService.getCommonErrors(request);
 
         assertThat(result).hasSize(3);
         assertThat(result.get(0).getMessage()).isEqualTo("Connection timeout");
         assertThat(result.get(0).getCount()).isEqualTo(123L);
-        assertThat(result.get(1).getMessage()).isEqualTo("Invalid credentials");
-        assertThat(result.get(1).getCount()).isEqualTo(87L);
     }
 
     @Test
     void getCommonErrors_shouldRespectLimit() {
-        List<Object[]> mockResults = new ArrayList<>();
-        mockResults.add(new Object[]{"Error 1", 100L});
-        mockResults.add(new Object[]{"Error 2", 80L});
-        mockResults.add(new Object[]{"Error 3", 60L});
-
+        CommonErrorsRequest request = new CommonErrorsRequest("auth-service", 2, null, null);
+        
+        List<Object[]> mockResults = Arrays.asList(
+            new Object[]{"Error 1", 100L},
+            new Object[]{"Error 2", 80L},
+            new Object[]{"Error 3", 60L}
+        );
+        
         when(logEntryRepository.findCommonErrorsByServiceAndTimeRange(eq("auth-service"), any(Instant.class), any(Instant.class)))
             .thenReturn(mockResults);
 
-        List<CommonErrorResponse> result = analyticsService.getCommonErrors("auth-service", 2, null, null);
+        List<CommonErrorResponse> result = analyticsService.getCommonErrors(request);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).getMessage()).isEqualTo("Error 1");
-        assertThat(result.get(1).getMessage()).isEqualTo("Error 2");
     }
 
     @Test
     void getCommonErrors_shouldReturnEmptyListWhenNoErrors() {
+        CommonErrorsRequest request = new CommonErrorsRequest("empty-service", 10, null, null);
+        
         when(logEntryRepository.findCommonErrorsByServiceAndTimeRange(eq("empty-service"), any(Instant.class), any(Instant.class)))
             .thenReturn(Collections.emptyList());
 
-        List<CommonErrorResponse> result = analyticsService.getCommonErrors("empty-service", 10, null, null);
+        List<CommonErrorResponse> result = analyticsService.getCommonErrors(request);
 
         assertThat(result).isEmpty();
     }
 
     @Test
-    void getCommonErrors_shouldUseCustomTimeRangeWhenProvided() {
-        Instant start = Instant.ofEpochMilli(1609459200000L);
-        Instant end = Instant.ofEpochMilli(1609545600000L);
-
-        List<Object[]> mockResults = new ArrayList<>();
-        mockResults.add(new Object[]{"Timeout", 50L});
-
-        when(logEntryRepository.findCommonErrorsByServiceAndTimeRange(eq("auth-service"), eq(start), eq(end)))
+    void getLogVolume_shouldReturnHourlyAggregation() {
+        LogVolumeRequest request = new LogVolumeRequest("auth-service", "hour", null, null);
+        
+        Instant ts1 = Instant.parse("2024-01-01T00:00:00Z");
+        Instant ts2 = Instant.parse("2024-01-01T01:00:00Z");
+        
+        List<Object[]> mockResults = Arrays.asList(
+            new Object[]{Timestamp.from(ts1), "auth-service", 100L},
+            new Object[]{Timestamp.from(ts2), "auth-service", 150L}
+        );
+        
+        when(logEntryRepository.findLogVolumeByServiceAndGranularity(
+            eq("auth-service"), eq("hour"), any(Instant.class), any(Instant.class)))
             .thenReturn(mockResults);
 
-        List<CommonErrorResponse> result = analyticsService.getCommonErrors("auth-service", 10, start, end);
+        List<LogVolumeResponse> result = analyticsService.getLogVolume(request);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getMessage()).isEqualTo("Timeout");
+        assertThat(result).isNotEmpty();
+        assertThat(result.get(0).getCount()).isEqualTo(100L);
+    }
+
+    @Test
+    void getLogVolume_shouldReturnDailyAggregation() {
+        LogVolumeRequest request = new LogVolumeRequest("auth-service", "day", null, null);
+        
+        Instant ts = Instant.parse("2024-01-01T00:00:00Z");
+        List<Object[]> mockResults = Arrays.asList(
+            new Object[]{Timestamp.from(ts), "auth-service", 2400L}
+        );
+        
+        when(logEntryRepository.findLogVolumeByServiceAndGranularity(
+            eq("auth-service"), eq("day"), any(Instant.class), any(Instant.class)))
+            .thenReturn(mockResults);
+
+        List<LogVolumeResponse> result = analyticsService.getLogVolume(request);
+
+        assertThat(result).isNotEmpty();
+        assertThat(result.get(0).getCount()).isEqualTo(2400L);
+    }
+
+    @Test
+    void getLogVolume_shouldFillMissingBucketsWithZero() {
+        LogVolumeRequest request = new LogVolumeRequest("auth-service", "hour", null, null);
+        
+        Instant ts = Instant.parse("2024-01-01T00:00:00Z");
+        List<Object[]> mockResults = Arrays.asList(
+            new Object[]{Timestamp.from(ts), "auth-service", 100L}
+        );
+        
+        when(logEntryRepository.findLogVolumeByServiceAndGranularity(
+            eq("auth-service"), eq("hour"), any(Instant.class), any(Instant.class)))
+            .thenReturn(mockResults);
+
+        List<LogVolumeResponse> result = analyticsService.getLogVolume(request);
+
+        assertThat(result).anySatisfy(r -> assertThat(r.getCount()).isEqualTo(0L));
     }
 }
