@@ -51,10 +51,21 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
             @Param("start") Instant start,
             @Param("end") Instant end);
 
-    @Query(value = "SELECT DATE_TRUNC(:granularity, l.created_at) as timestamp, l.service_name, COUNT(l) as count FROM log_entries l WHERE l.service_name = :service AND l.created_at >= :startTime AND l.created_at <= :endTime GROUP BY DATE_TRUNC(:granularity, l.created_at), l.service_name ORDER BY timestamp ASC", nativeQuery = true)
-    List<Object[]> findLogVolumeByServiceAndGranularity(
-            @Param("service") String service,
-            @Param("granularity") String granularity,
-            @Param("startTime") Instant startTime,
-            @Param("endTime") Instant endTime);
+    @Query(value = "SELECT date_trunc('hour', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE service_name = :serviceName "
+            + "AND created_at >= :start AND created_at <= :endTime "
+            + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> findHourlyVolume(
+            @Param("serviceName") String serviceName,
+            @Param("start") Instant start,
+            @Param("endTime") Instant end);
+
+    @Query(value = "SELECT date_trunc('day', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE service_name = :serviceName "
+            + "AND created_at >= :start AND created_at <= :endTime "
+            + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> findDailyVolume(
+            @Param("serviceName") String serviceName,
+            @Param("start") Instant start,
+            @Param("endTime") Instant end);
 }

@@ -37,3 +37,11 @@ springdoc:
         tags-sorter: alpha
         display-request-duration: true
         filter: true
+
+logging:
+    level:
+        org:
+            springframework:
+                security: DEBUG
+
+

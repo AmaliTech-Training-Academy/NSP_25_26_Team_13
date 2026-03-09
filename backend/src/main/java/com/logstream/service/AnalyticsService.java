@@ -2,9 +2,7 @@ package com.logstream.service;
 
 import com.logstream.dto.ErrorRateResponse;
 import com.logstream.dto.CommonErrorResponse;
-import com.logstream.dto.CommonErrorsRequest;
 import com.logstream.dto.LogVolumeResponse;
-import com.logstream.dto.LogVolumeRequest;
 import com.logstream.repository.LogEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +19,10 @@ import java.util.stream.Collectors;
 public class AnalyticsService {
 
     private final LogEntryRepository logEntryRepository;
+    private static final int DEFAULT_LIMIT = 10;
+    private static final int MAX_LIMIT = 100;
+    private static final int DEFAULT_VOLUME_DAYS = 7;
+    private static final Set<String> VALID_GRANULARITIES = Set.of("hour", "day");
 
     public List<ErrorRateResponse> getErrorRatePerService() {
         Instant since = Instant.now().minus(24, ChronoUnit.HOURS);
@@ -30,25 +32,25 @@ public class AnalyticsService {
         Map<String, Long> totalMap = toMap(logEntryRepository.countByServiceAndCreatedAtAfter(since));
 
         return allServices.stream()
-            .map(service -> buildErrorRate(service, errorMap, totalMap))
-            .collect(Collectors.toList());
+                .map(service -> buildErrorRate(service, errorMap, totalMap))
+                .collect(Collectors.toList());
     }
 
     private ErrorRateResponse buildErrorRate(String service, Map<String, Long> errorMap, Map<String, Long> totalMap) {
         long errorCount = errorMap.getOrDefault(service, 0L);
         long totalCount = totalMap.getOrDefault(service, 0L);
         double rate = totalCount > 0
-            ? BigDecimal.valueOf(errorCount * 100.0 / totalCount)
+                ? BigDecimal.valueOf(errorCount * 100.0 / totalCount)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue()
-            : 0.0;
+                : 0.0;
 
         return ErrorRateResponse.builder()
-            .service(service)
-            .errorRate(rate)
-            .errorCount(errorCount)
-            .totalCount(totalCount)
-            .build();
+                .service(service)
+                .errorRate(rate)
+                .errorCount(errorCount)
+                .totalCount(totalCount)
+                .build();
     }
 
     private Map<String, Long> toMap(List<Object[]> rows) {
@@ -59,77 +61,107 @@ public class AnalyticsService {
         return map;
     }
 
-    public List<CommonErrorResponse> getCommonErrors(CommonErrorsRequest request) {
-        Instant since = request.getStartTime() != null
-            ? Instant.ofEpochMilli(request.getStartTime())
-            : Instant.now().minus(24, ChronoUnit.HOURS);
-        
-        Instant until = request.getEndTime() != null
-            ? Instant.ofEpochMilli(request.getEndTime())
-            : Instant.now();
+    public List<CommonErrorResponse> getCommonErrors(String service, Integer limit,
+                                                     Instant startTime, Instant endTime) {
+        int effectiveLimit = resolveLimit(limit);
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = startTime != null ? startTime : end.minus(24, ChronoUnit.HOURS);
 
-        List<Object[]> results = logEntryRepository.findCommonErrorsByServiceAndTimeRange(
-            request.getService(), since, until);
+        List<Object[]> results = logEntryRepository
+                .findCommonErrorsByServiceAndTimeRange(service, start, end);
 
-        return results.stream()
-            .limit(request.getLimit())
-            .map(row -> CommonErrorResponse.builder()
-                .message((String) row[0])
-                .count((Long) row[1])
-                .build())
-            .collect(Collectors.toList());
+        List<CommonErrorResponse> responses = results.stream()
+                .limit(effectiveLimit)
+                .map(row -> CommonErrorResponse.builder()
+                        .message((String) row[0])
+                        .count((Long) row[1])
+                        .build())
+                .collect(Collectors.toList());
+
+        return responses;
     }
 
-    public List<LogVolumeResponse> getLogVolume(LogVolumeRequest request) {
-        Instant startTime = request.getStartTime() != null
-            ? Instant.ofEpochMilli(request.getStartTime())
-            : Instant.now().minus(7, ChronoUnit.DAYS);
-        
-        Instant endTime = request.getEndTime() != null
-            ? Instant.ofEpochMilli(request.getEndTime())
-            : Instant.now();
-
-        List<Object[]> results = logEntryRepository.findLogVolumeByServiceAndGranularity(
-            request.getService(), request.getGranularity(), startTime, endTime);
-
-        return fillMissingBuckets(results, request.getService(), request.getGranularity(), startTime, endTime);
+    private int resolveLimit(Integer limit) {
+        if (limit == null) {
+            return DEFAULT_LIMIT;
+        }
+        if (limit < 1 || limit > MAX_LIMIT) {
+            throw new IllegalArgumentException(
+                    "Limit must be between 1 and " + MAX_LIMIT);
+        }
+        return limit;
     }
 
-    private List<LogVolumeResponse> fillMissingBuckets(List<Object[]> results, String service, 
-        String granularity, Instant startTime, Instant endTime) {
-        Map<Instant, Long> resultMap = new HashMap<>();
+
+
+    /**
+     * Returns log volume time series aggregated by hour or day for a given service.
+     * Uses native PostgreSQL date_trunc for efficient grouping.
+     * Missing time buckets are filled with count: 0.
+     * Time range defaults to last 7 days if not specified.
+     */
+    public List<LogVolumeResponse> getLogVolumeTimeSeries(String service, String granularity,
+                                                          Instant startTime, Instant endTime) {
+        if (!VALID_GRANULARITIES.contains(granularity)) {
+            throw new IllegalArgumentException(
+                    "Granularity must be 'hour' or 'day'");
+        }
+
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = startTime != null ? startTime
+                : end.minus(DEFAULT_VOLUME_DAYS, ChronoUnit.DAYS);
+
+        List<Object[]> results = "hour".equals(granularity)
+                ? logEntryRepository.findHourlyVolume(service, start, end)
+                : logEntryRepository.findDailyVolume(service, start, end);
+
+        Map<Instant, Long> countsByBucket = new LinkedHashMap<>();
         for (Object[] row : results) {
-            Instant ts = ((Timestamp) row[0]).toInstant();
+            Instant bucket = toInstant(row[0]);
             Long count = ((Number) row[2]).longValue();
-            resultMap.put(ts, count);
+            countsByBucket.put(bucket, count);
         }
 
-        List<LogVolumeResponse> response = new ArrayList<>();
-        Instant current = startTime;
-        long step = "hour".equals(granularity) ? 3600 : 86400;
-        
-        while (current.isBefore(endTime) || current.equals(endTime)) {
-            Long count = resultMap.getOrDefault(current, 0L);
-            response.add(LogVolumeResponse.builder()
-                .timestamp(current)
-                .service(service)
-                .count(count)
-                .build());
-            current = current.plusSeconds(step);
+        return fillGaps(service, granularity, start, end, countsByBucket);
+    }
+
+    private Instant toInstant(Object value) {
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).toInstant();
         }
-        
-        return response;
+        if (value instanceof Instant) {
+            return (Instant) value;
+        }
+        throw new IllegalStateException("Unexpected timestamp type: " + value.getClass());
     }
 
-    public Map<String, Long> getLogVolumeOld(int hours) {
-        throw new UnsupportedOperationException("Log volume not yet implemented");
+    private List<LogVolumeResponse> fillGaps(String service, String granularity,
+                                             Instant start, Instant end, Map<Instant, Long> countsByBucket) {
+        ChronoUnit unit = "hour".equals(granularity) ? ChronoUnit.HOURS : ChronoUnit.DAYS;
+        Instant truncatedStart = truncate(start, granularity);
+
+        List<LogVolumeResponse> responses = new ArrayList<>();
+        Instant current = truncatedStart;
+
+        while (!current.isAfter(end)) {
+            long count = countsByBucket.getOrDefault(current, 0L);
+            responses.add(LogVolumeResponse.builder()
+                    .timestamp(current)
+                    .service(service)
+                    .count(count)
+                    .build());
+            current = current.plus(1, unit);
+        }
+
+        return responses;
     }
 
-    public List<Map<String, Object>> getTopErrors(int limit) {
-        throw new UnsupportedOperationException("Top errors not yet implemented");
+    private Instant truncate(Instant instant, String granularity) {
+        if ("hour".equals(granularity)) {
+            return instant.truncatedTo(ChronoUnit.HOURS);
+        }
+        return instant.truncatedTo(ChronoUnit.DAYS);
     }
 
-    public Map<String, String> getServiceHealth() {
-        throw new UnsupportedOperationException("Service health not yet implemented");
-    }
+
 }
