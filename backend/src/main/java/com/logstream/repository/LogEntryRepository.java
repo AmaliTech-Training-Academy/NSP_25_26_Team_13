@@ -30,4 +30,10 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
 
     @Query("SELECT l.serviceName, l.level, COUNT(l) FROM LogEntry l GROUP BY l.serviceName, l.level")
     List<Object[]> countGroupByServiceAndLevel();
+
+    @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.createdAt >= :since GROUP BY l.serviceName")
+    List<Object[]> countByServiceSince(Instant since);
+
+    @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.level = :level AND l.createdAt >= :since GROUP BY l.serviceName")
+    List<Object[]> countByLevelAndServiceSince(LogLevel level, Instant since);
 }
