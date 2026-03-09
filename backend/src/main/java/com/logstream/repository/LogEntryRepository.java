@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.List;
@@ -31,9 +32,14 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
     @Query("SELECT l.serviceName, l.level, COUNT(l) FROM LogEntry l GROUP BY l.serviceName, l.level")
     List<Object[]> countGroupByServiceAndLevel();
 
-    @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.createdAt >= :since GROUP BY l.serviceName")
-    List<Object[]> countByServiceSince(Instant since);
+    @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.level = 'ERROR' AND l.createdAt >= :since GROUP BY l.serviceName")
+    List<Object[]> countErrorsByServiceAndCreatedAtAfter(@Param("since") Instant since);
 
-    @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.level = :level AND l.createdAt >= :since GROUP BY l.serviceName")
-    List<Object[]> countByLevelAndServiceSince(LogLevel level, Instant since);
+    @Query("SELECT DISTINCT l.serviceName FROM LogEntry l")
+    List<String> findDistinctServiceNames();
+
+
+    @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.createdAt >= :since GROUP BY l.serviceName")
+    List<Object[]> countByServiceAndCreatedAtAfter(@Param("since") Instant since);
+
 }

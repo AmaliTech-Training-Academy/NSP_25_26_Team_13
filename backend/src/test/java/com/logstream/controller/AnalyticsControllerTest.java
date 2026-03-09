@@ -42,7 +42,7 @@ class AnalyticsControllerTest {
                 .build()
         );
 
-        when(analyticsService.getErrorRateByService()).thenReturn(mockResponse);
+        when(analyticsService.getErrorRatePerService()).thenReturn(mockResponse);
 
         mockMvc.perform(get("/api/analytics/error-rate"))
             .andExpect(status().isOk())

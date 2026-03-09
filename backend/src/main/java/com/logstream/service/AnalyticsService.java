@@ -5,7 +5,11 @@ import com.logstream.dto.ErrorRateResponse;
 import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -13,55 +17,53 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AnalyticsService {
 
     private final LogEntryRepository logEntryRepository;
 
-    public List<ErrorRateResponse> getErrorRateByService() {
+    public List<ErrorRateResponse> getErrorRatePerService() {
         Instant since = Instant.now().minus(24, ChronoUnit.HOURS);
-        
-        Map<String, Long> totalCountsByService = buildServiceCountMap(
-            logEntryRepository.countByServiceSince(since)
-        );
-        
-        Map<String, Long> errorCountsByService = buildServiceCountMap(
-            logEntryRepository.countByLevelAndServiceSince(LogLevel.ERROR, since)
-        );
-        
-        return totalCountsByService.entrySet().stream()
-            .map(entry -> buildErrorRateResponse(
-                entry.getKey(),
-                errorCountsByService.getOrDefault(entry.getKey(), 0L),
-                entry.getValue()
-            ))
-            .collect(Collectors.toList());
-    }
 
-    private Map<String, Long> buildServiceCountMap(List<Object[]> results) {
-        return results.stream()
-            .collect(Collectors.toMap(
-                row -> (String) row[0],
-                row -> (Long) row[1]
-            ));
-    }
+        List<String> allServices = logEntryRepository.findDistinctServiceNames();
+        List<Object[]> errorCounts = logEntryRepository.countErrorsByServiceAndCreatedAtAfter(since);
+        List<Object[]> totalCounts = logEntryRepository.countByServiceAndCreatedAtAfter(since);
 
-    private ErrorRateResponse buildErrorRateResponse(String service, Long errorCount, Long totalCount) {
-        double errorRate = calculateErrorRate(errorCount, totalCount);
-        
+        Map<String, Long> errorMap = toMap(errorCounts);
+        Map<String, Long> totalMap = toMap(totalCounts);
+
+        List<ErrorRateResponse> responses = allServices.stream()
+                .map(service -> buildErrorRate(service, errorMap, totalMap))
+                .collect(Collectors.toList());
+
+        log.debug("Error rate per service calculated for {} services", responses.size());
+        return responses;
+    }
+    private ErrorRateResponse buildErrorRate(String service,
+                                             Map<String, Long> errorMap,
+                                             Map<String, Long> totalMap) {
+        long errorCount = errorMap.getOrDefault(service, 0L);
+        long totalCount = totalMap.getOrDefault(service, 0L);
+        double rate = totalCount > 0
+                ? BigDecimal.valueOf(errorCount * 100.0 / totalCount)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue()
+                : 0.0;
+
         return ErrorRateResponse.builder()
-            .service(service)
-            .errorRate(errorRate)
-            .errorCount(errorCount)
-            .totalCount(totalCount)
-            .build();
+                .service(service)
+                .errorRate(rate)
+                .errorCount(errorCount)
+                .totalCount(totalCount)
+                .build();
     }
 
-    private double calculateErrorRate(Long errorCount, Long totalCount) {
-        if (totalCount == 0) {
-            return 0.0;
+    private Map<String, Long> toMap(List<Object[]> rows) {
+        Map<String, Long> map = new HashMap<>();
+        for (Object[] row : rows) {
+            map.put((String) row[0], (Long) row[1]);
         }
-        double rate = (errorCount * 100.0) / totalCount;
-        return Math.round(rate * 100.0) / 100.0;
+        return map;
     }
 
     // TODO (Dev C): Group logs by hour, count
