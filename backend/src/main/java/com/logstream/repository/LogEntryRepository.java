@@ -51,4 +51,10 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
             @Param("start") Instant start,
             @Param("end") Instant end);
 
+    @Query(value = "SELECT DATE_TRUNC(:granularity, l.created_at) as timestamp, l.service_name, COUNT(l) as count FROM log_entries l WHERE l.service_name = :service AND l.created_at >= :startTime AND l.created_at <= :endTime GROUP BY DATE_TRUNC(:granularity, l.created_at), l.service_name ORDER BY timestamp ASC", nativeQuery = true)
+    List<Object[]> findLogVolumeByServiceAndGranularity(
+            @Param("service") String service,
+            @Param("granularity") String granularity,
+            @Param("startTime") Instant startTime,
+            @Param("endTime") Instant endTime);
 }
