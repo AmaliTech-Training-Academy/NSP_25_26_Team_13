@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
+""" 
 # Fetch environment variables
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -22,7 +22,7 @@ DATABASE_URL = (
     f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
     f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
 )
-
+ """
 
 
 

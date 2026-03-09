@@ -136,23 +136,34 @@ def _pick_message(level: str) -> str:
 # SPIKE WEIGHT BUILDER
 def _spike_weights(service: str) -> list:
     """
-    Return level weights for a service that is currently in a spike window.
+    Return level weights for a service currently in an error spike.
 
-    The configured error_weight takes ERROR's slot; the remaining probability
-    is distributed proportionally across the other four levels using their
-    baseline ratios: INFO 60%, DEBUG 20%, WARN 10%, TRACE 2%.
+    ERROR gets the configured spike weight. The remaining probability
+    is distributed across the other levels based on their baseline
+    proportions from LEVEL_WEIGHTS.
     """
+
     spike_error = ERROR_SPIKES[service]["error_weight"]
-    remaining   = 1.0 - spike_error
-    # Baseline non-error proportions normalised against their sum (0.92)
-    base_sum = 0.60 + 0.20 + 0.10 + 0.02   # 0.92
-    return [
-        remaining * (0.60 / base_sum),   # INFO
-        remaining * (0.20 / base_sum),   # DEBUG
-        remaining * (0.10 / base_sum),   # WARN
-        spike_error,                      # ERROR  <- the spike
-        remaining * (0.02 / base_sum),   # TRACE
-    ]
+    remaining = 1.0 - spike_error
+
+    # Find ERROR index dynamically
+    error_index = LEVELS.index("ERROR")
+
+    # Sum of all non-error baseline weights
+    base_sum = sum(
+        w for i, w in enumerate(LEVEL_WEIGHTS)
+        if i != error_index
+    )
+
+    spike_weights = []
+
+    for i, weight in enumerate(LEVEL_WEIGHTS):
+        if i == error_index:
+            spike_weights.append(spike_error)
+        else:
+            spike_weights.append(remaining * (weight / base_sum))
+
+    return spike_weights
 
 
 
