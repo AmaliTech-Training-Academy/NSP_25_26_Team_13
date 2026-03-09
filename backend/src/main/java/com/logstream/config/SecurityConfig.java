@@ -33,9 +33,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(customAccessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/logs/**").permitAll()
+                        .requestMatchers("/api/logs", "/api/logs/batch").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
