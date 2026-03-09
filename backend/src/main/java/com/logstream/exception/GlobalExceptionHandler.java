@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -22,22 +23,15 @@ import java.util.stream.Stream;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // 400 – Bad Request
-    // ══════════════════════════════════════════════════════════════════════════
-
-    /**
-     * Bean validation failures on @RequestBody fields.
-     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex) {
 
         Map<String, String> errors = Stream.concat(
                 ex.getBindingResult().getFieldErrors().stream()
-                        .map(e -> Map.entry(e.getField(), e.getDefaultMessage())),
+                        .map(e -> Map.entry(e.getField(), Objects.requireNonNull(e.getDefaultMessage()))),
                 ex.getBindingResult().getGlobalErrors().stream()
-                        .map(e -> Map.entry(e.getObjectName(), e.getDefaultMessage()))
+                        .map(e -> Map.entry(e.getObjectName(), Objects.requireNonNull(e.getDefaultMessage())))
         ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
                 (existing, replacement) -> existing));
 
@@ -46,9 +40,6 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder().errors(errors).build());
     }
 
-    /**
-     * Bean validation failures on @RequestParam / @PathVariable.
-     */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(
             ConstraintViolationException ex) {
@@ -72,19 +63,6 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder().message(ex.getMessage()).build());
     }
 
-    @ExceptionHandler(InvalidDataException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidData(InvalidDataException ex) {
-        log.warn("Invalid data: {}", ex.getMessage());
-        return ResponseEntity.badRequest()
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
-    }
-
-    /*
-     * NOTE: AccessDeniedException from the Security filter chain is handled by
-     * CustomAccessDeniedHandler. This handler covers AccessDeniedException thrown
-     * from @Service code or @PreAuthorize annotations evaluated inside the MVC layer.
-     */
-
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex,
                                                             HttpServletRequest request) {
@@ -95,20 +73,6 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
-    /**
-     * Custom domain authorization exception (thrown when role checks fail in service layer).
-     */
-    @ExceptionHandler(AuthorizationException.class)
-    public ResponseEntity<ErrorResponse> handleAuthorizationException(AuthorizationException ex) {
-        log.warn("Authorization failure: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // 404 – Not Found
-    // ══════════════════════════════════════════════════════════════════════════
-
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
         log.warn("Resource not found: {}", ex.getMessage());
@@ -116,9 +80,6 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder().message(ex.getMessage()).build());
     }
 
-    /**
-     * Handles missing static resources (e.g. /favicon.ico) — avoids 500 noise in logs.
-     */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoStaticResource(NoResourceFoundException ex) {
         log.debug("Static resource not found: {}", ex.getMessage());
@@ -127,17 +88,4 @@ public class GlobalExceptionHandler {
                         .message("Resource not found: " + ex.getMessage())
                         .build());
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // 409 – Conflict
-    // ══════════════════════════════════════════════════════════════════════════
-
-    @ExceptionHandler(DuplicateResourceException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateResource(DuplicateResourceException ex) {
-        log.warn("Duplicate resource: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
-    }
-
-
 }
