@@ -45,12 +45,12 @@ class AnalyticsServiceTest {
         when(logEntryRepository.findDistinctServiceNames())
             .thenReturn(Arrays.asList("auth-service", "payment-service", "user-service"));
         when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(
+            .thenReturn((List) Arrays.asList(
                 new Object[]{"auth-service", 52L},
                 new Object[]{"payment-service", 25L}
             ));
         when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(
+            .thenReturn((List) Arrays.asList(
                 new Object[]{"auth-service", 1000L},
                 new Object[]{"payment-service", 500L},
                 new Object[]{"user-service", 200L}
@@ -91,7 +91,7 @@ class AnalyticsServiceTest {
         when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
             .thenReturn(Collections.emptyList());
         when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(
+            .thenReturn((List) Arrays.asList(
                 new Object[]{"payment-service", 500L},
                 new Object[]{"notification-service", 1000L}
             ));
@@ -112,9 +112,9 @@ class AnalyticsServiceTest {
         when(logEntryRepository.findDistinctServiceNames())
             .thenReturn(Arrays.asList("test-service"));
         when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(new Object[]{"test-service", 17L}));
+            .thenReturn((List) Arrays.asList(new Object[]{"test-service", 17L}));
         when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(new Object[]{"test-service", 333L}));
+            .thenReturn((List) Arrays.asList(new Object[]{"test-service", 333L}));
 
         List<ErrorRateResponse> result = analyticsService.getErrorRatePerService();
 
@@ -128,9 +128,9 @@ class AnalyticsServiceTest {
         when(logEntryRepository.findDistinctServiceNames())
             .thenReturn(Arrays.asList("test-service"));
         when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(new Object[]{"test-service", 1L}));
+            .thenReturn((List) Arrays.asList(new Object[]{"test-service", 1L}));
         when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(new Object[]{"test-service", 3L}));
+            .thenReturn((List) Arrays.asList(new Object[]{"test-service", 3L}));
 
         List<ErrorRateResponse> result = analyticsService.getErrorRatePerService();
 
@@ -146,7 +146,7 @@ class AnalyticsServiceTest {
         when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
             .thenReturn(Collections.emptyList());
         when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(new Object[]{"empty-service", 0L}));
+            .thenReturn((List) Arrays.asList(new Object[]{"empty-service", 0L}));
 
         List<ErrorRateResponse> result = analyticsService.getErrorRatePerService();
 
@@ -179,9 +179,9 @@ class AnalyticsServiceTest {
         when(logEntryRepository.findDistinctServiceNames())
             .thenReturn(Arrays.asList("failing-service"));
         when(logEntryRepository.countErrorsByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(new Object[]{"failing-service", 100L}));
+            .thenReturn((List) Arrays.asList(new Object[]{"failing-service", 100L}));
         when(logEntryRepository.countByServiceAndCreatedAtAfter(any(Instant.class)))
-            .thenReturn(Arrays.asList(new Object[]{"failing-service", 100L}));
+            .thenReturn((List) Arrays.asList(new Object[]{"failing-service", 100L}));
 
         List<ErrorRateResponse> result = analyticsService.getErrorRatePerService();
 
