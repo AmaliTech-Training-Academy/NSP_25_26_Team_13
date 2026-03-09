@@ -24,7 +24,7 @@ import json
 import random
 import uuid
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 from pathlib import Path
 
 from config.config import (
@@ -206,7 +206,7 @@ def generate_logs(services: list, num_logs: int = 5000, days: int = 30) -> list:
     The loop runs up to 3x num_logs attempts to absorb logs dropped
     by outage windows, ensuring the output count is close to num_logs.
     """
-    end_time   = datetime.utcnow()
+    end_time   = datetime.now(timezone.utc)
     start_time = end_time - timedelta(days=days)
 
     # Pre-place all windows before touching any individual log
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     out_path = (
         Path(args.out)
         if args.out
-        else LOG_DIR / f"logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        else LOG_DIR / f"logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
