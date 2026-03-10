@@ -1,7 +1,7 @@
 package com.logstream.controller;
 
 import com.logstream.common.response.ApiResponse;
-import com.logstream.dto.HealthDashboardResponse;
+import com.logstream.dto.ServiceHealthResponse;
 import com.logstream.service.HealthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,8 +22,8 @@ public class HealthController {
 
     @GetMapping("/dashboard")
     @Operation(summary = "Get health dashboard", description = "Returns health status for all services")
-    public ResponseEntity<ApiResponse<List<HealthDashboardResponse>>> getHealthDashboard() {
-        List<HealthDashboardResponse> response = healthService.getHealthDashboard();
+    public ResponseEntity<ApiResponse<List<ServiceHealthResponse>>> getDashboard() {
+        List<ServiceHealthResponse> response = healthService.getHealthDashboard();
         return ResponseEntity.ok(ApiResponse.success("Health dashboard retrieved successfully", response));
     }
 }

@@ -69,9 +69,7 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
             @Param("start") Instant start,
             @Param("endTime") Instant end);
 
-    @Query("SELECT l.serviceName, MAX(l.createdAt) FROM LogEntry l GROUP BY l.serviceName")
-    List<Object[]> findLastLogTimePerService();
+   @Query("SELECT l.serviceName, MAX(l.timestamp) FROM LogEntry l GROUP BY l.serviceName")
+    List<Object[]> findLastLogTimestampByService();
 
-    @Query("SELECT l.serviceName, COUNT(CASE WHEN l.level = 'ERROR' THEN 1 END) as errorCount, COUNT(l) as totalCount FROM LogEntry l WHERE l.createdAt >= :since GROUP BY l.serviceName")
-    List<Object[]> findErrorRateDataPerService(@Param("since") Instant since);
 }
