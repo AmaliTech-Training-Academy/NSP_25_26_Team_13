@@ -1,455 +1,283 @@
-# LogStream Frontend Implementation Guide
+# Frontend Documentation
 
 ## Overview
-This guide provides step-by-step instructions for implementing a server-side rendered HTML dashboard for the LogStream system using Spring Boot and Thymeleaf.
+
+This document provides guidelines and information for frontend development in the LogStream project. LogStream is a log aggregation and analytics platform with a comprehensive REST API backend.
 
 ## Technology Stack
-- **Backend**: Spring Boot 3.2.0
-- **Template Engine**: Thymeleaf
-- **Styling**: Tailwind CSS (via CDN)
-- **Charts**: Chart.js (via CDN)
-- **Icons**: Font Awesome (via CDN)
 
-## Step 1: Add Dependencies
+- **Framework**: React 18+
+- **State Management**: Redux Toolkit or Context API
+- **HTTP Client**: Axios
+- **Styling**: Tailwind CSS or Material-UI
+- **Build Tool**: Vite or Create React App
+- **Testing**: Jest + React Testing Library
+- **Linting**: ESLint
+- **Code Formatting**: Prettier
 
-### Update pom.xml
-Add the following dependencies to your `pom.xml` file:
+## Project Structure
 
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-thymeleaf</artifactId>
-</dependency>
+```
+frontend/
+├── public/
+│   └── index.html
+├── src/
+│   ├── components/
+│   │   ├── Analytics/
+│   │   ├── Health/
+│   │   ├── Logs/
+│   │   └── Common/
+│   ├── pages/
+│   │   ├── Dashboard.jsx
+│   │   ├── Analytics.jsx
+│   │   └── Health.jsx
+│   ├── services/
+│   │   ├── api.js
+│   │   ├── analyticsService.js
+│   │   └── healthService.js
+│   ├── hooks/
+│   │   ├── useAnalytics.js
+│   │   └── useHealth.js
+│   ├── store/
+│   │   ├── slices/
+│   │   └── store.js
+│   ├── utils/
+│   │   ├── formatters.js
+│   │   └── validators.js
+│   ├── App.jsx
+│   └── main.jsx
+├── tests/
+│   ├── components/
+│   └── services/
+├── package.json
+└── vite.config.js
 ```
 
-The project should already have:
-- `spring-boot-starter-web`
-- `spring-boot-starter-data-jpa`
-- `spring-boot-starter-security`
+## Setup and Installation
 
-## Step 2: Create Web Controller
+### Prerequisites
 
-Create `WebController.java` in `src/main/java/com/logstream/controller/`:
+- Node.js 16+ and npm 8+
+- Backend API running on `http://localhost:8080`
 
-### Key Features:
-- **Dashboard**: Overview with analytics and statistics
-- **Retention Policies**: CRUD operations for retention policies
-- **Log Management**: View, filter, and export logs
-- **Analytics**: Detailed analytics with charts
-- **CSV Export/Import**: Bulk log data operations
+### Installation Steps
 
-### Controller Methods:
-```java
-@Controller
-public class WebController {
-    
-    // Dashboard - GET /
-    @GetMapping("/")
-    public String dashboard(Model model)
-    
-    // Retention Policies - GET /retention
-    @GetMapping("/retention")
-    public String retentionPolicies(Model model)
-    
-    // Add Policy - POST /retention/add
-    @PostMapping("/retention/add")
-    public String addRetentionPolicy(@ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes)
-    
-    // Edit Policy - GET /retention/edit/{id}
-    @GetMapping("/retention/edit/{id}")
-    public String editRetentionPolicy(@PathVariable Long id, Model model)
-    
-    // Update Policy - POST /retention/update/{id}
-    @PostMapping("/retention/update/{id}")
-    public String updateRetentionPolicy(@PathVariable Long id, @ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes)
-    
-    // Delete Policy - GET /retention/delete/{id}
-    @GetMapping("/retention/delete/{id}")
-    public String deleteRetentionPolicy(@PathVariable Long id, RedirectAttributes redirectAttributes)
-    
-    // Log Management - GET /logs
-    @GetMapping("/logs")
-    public String logManagement(@RequestParam(defaultValue = "0") int page, ...)
-    
-    // CSV Export - GET /logs/export/csv
-    @GetMapping("/logs/export/csv")
-    public String exportLogsToCsv(@RequestParam(required = false) String service, ...)
-    
-    // CSV Import Form - GET /logs/import
-    @GetMapping("/logs/import")
-    public String importLogsForm()
-    
-    // CSV Import - POST /logs/import/csv
-    @PostMapping("/logs/import/csv")
-    public String importLogsFromCsv(@RequestParam("file") MultipartFile file, ...)
-    
-    // Analytics - GET /analytics
-    @GetMapping("/analytics")
-    public String analytics(@RequestParam(required = false) String service, ...)
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create `.env` file:
+```
+VITE_API_URL=http://localhost:8080/api
+VITE_APP_NAME=LogStream
+```
+
+4. Start development server:
+```bash
+npm run dev
+```
+
+5. Open browser at `http://localhost:5173`
+
+## Development Guidelines
+
+### Code Style
+
+- Follow ESLint configuration
+- Use Prettier for code formatting
+- Use camelCase for variables and functions
+- Use PascalCase for components and classes
+- Keep components under 300 lines
+- Extract reusable logic into custom hooks
+
+### Component Structure
+
+```jsx
+// Functional component with hooks
+import { useState, useEffect } from 'react';
+
+export function ComponentName({ prop1, prop2 }) {
+  const [state, setState] = useState(null);
+
+  useEffect(() => {
+    // Side effects
+  }, []);
+
+  return (
+    <div>
+      {/* JSX */}
+    </div>
+  );
 }
 ```
 
-## Step 3: Create Thymeleaf Templates
+### API Integration
 
-### Directory Structure
-```
-src/main/resources/templates/
-├── layout.html              # Base layout template
-├── dashboard.html           # Dashboard page
-├── retention.html           # Retention policies management
-├── edit-retention.html      # Edit retention policy form
-├── logs.html               # Log management page
-├── analytics.html          # Analytics page
-├── import-logs.html        # CSV import form
-└── csv-export.html         # CSV export template
-```
+Use centralized API service:
 
-### Base Layout (`layout.html`)
-- Responsive sidebar navigation
-- Mobile-friendly with hamburger menu
-- Flash message support
-- Common header with system status
-- CDN integration for Tailwind CSS, Chart.js, and Font Awesome
-
-### Key Template Features:
-
-#### 1. Dashboard (`dashboard.html`)
-- Statistics cards (total logs, error count, service count)
-- Error rate by service chart
-- Recent log entries table
-- Quick action buttons
-
-#### 2. Retention Policies (`retention.html`)
-- Policy table with CRUD actions
-- Add new policy form
-- Edit and delete functionality
-- Service name validation
-
-#### 3. Log Management (`logs.html`)
-- Paginated log entries table
-- Service and level filtering
-- Search functionality
-- Export to CSV button
-- Import CSV button
-
-#### 4. Analytics (`analytics.html`)
-- Interactive charts using Chart.js
-- Log volume time series
-- Error rate trends
-- Service comparison
-- Granularity selection (hour/day)
-
-#### 5. CSV Operations
-- **Export**: Filtered logs exported as CSV
-- **Import**: CSV file upload with validation
-- **Bulk Operations**: Handle large datasets efficiently
-
-## Step 4: Template Implementation Details
-
-### Dashboard Template Structure:
-```html
-<html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="layout :: head">
-    <title>Dashboard - LogStream</title>
-</head>
-<body>
-    <div th:replace="layout :: sidebar"></div>
-    <div th:replace="layout :: header"></div>
-    
-    <main>
-        <!-- Statistics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-sm font-medium text-gray-500">Total Logs</h3>
-                <p class="text-2xl font-bold text-gray-900" th:text="${totalLogs}">0</p>
-            </div>
-            <!-- More cards... -->
-        </div>
-        
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-semibold mb-4">Error Rate by Service</h3>
-                <canvas id="errorRateChart"></canvas>
-            </div>
-            <!-- More charts... -->
-        </div>
-    </main>
-</body>
-</html>
-```
-
-### Retention Policy Form:
-```html
-<form th:action="@{/retention/add}" method="post" th:object="${newPolicy}" class="space-y-4">
-    <div>
-        <label class="block text-sm font-medium text-gray-700">Service Name</label>
-        <input type="text" th:field="*{serviceName}" required 
-               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-    </div>
-    
-    <div>
-        <label class="block text-sm font-medium text-gray-700">Retention Days</label>
-        <input type="number" th:field="*{retentionDays}" min="1" required
-               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-    </div>
-    
-    <div>
-        <label class="flex items-center">
-            <input type="checkbox" th:field="*{archiveEnabled}" 
-                   class="rounded border-gray-300 text-blue-600">
-            <span class="ml-2 text-sm text-gray-700">Enable Archive</span>
-        </label>
-    </div>
-    
-    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-        Add Policy
-    </button>
-</form>
-```
-
-## Step 5: Security Configuration
-
-### Update Security Config
-Add web endpoint access to your `SecurityConfig`:
-
-```java
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig {
-    
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/api/**").authenticated()
-                .requestMatchers("/", "/dashboard", "/analytics", "/logs").authenticated()
-                .requestMatchers("/retention/**").hasRole("ADMIN")
-                .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .formLogin(form -> form
-                .loginPage("/login")
-                .defaultSuccessUrl("/")
-                .permitAll()
-            )
-            .logout(logout -> logout
-                .logoutSuccessUrl("/login")
-                .permitAll()
-            );
-        
-        return http.build();
-    }
-}
-```
-
-## Step 6: CSV Processing
-
-### CSV Export Template (`csv-export.html`)
-```html
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Log Export</title>
-</head>
-<body>
-    <th:block th:fragment="csv-content">
-        ID,Timestamp,Service,Level,Message,Source,Created At
-        <th:block th:each="log : ${logs}">
-            <span th:text="${log.id}"></span>,
-            <span th:text="${#temporals.format(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}"></span>,
-            <span th:text="${log.serviceName}"></span>,
-            <span th:text="${log.level}"></span>,
-            <span th:text="${#strings.escapeXml(log.message)}"></span>,
-            <span th:text="${log.source}"></span>,
-            <span th:text="${#temporals.format(log.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></span>
-        </th:block>
-    </th:block>
-</body>
-</html>
-```
-
-### CSV Import Service
-```java
-@Service
-public class CsvImportService {
-    
-    public void importLogsFromCsv(MultipartFile file) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-            String line;
-            boolean skipHeader = true;
-            
-            while ((line = reader.readLine()) != null) {
-                if (skipHeader) {
-                    skipHeader = false;
-                    continue;
-                }
-                
-                String[] fields = line.split(",");
-                LogEntry logEntry = LogEntry.builder()
-                    .id(UUID.fromString(fields[0]))
-                    .timestamp(Instant.parse(fields[1]))
-                    .serviceName(fields[2])
-                    .level(LogLevel.valueOf(fields[3]))
-                    .message(fields[4])
-                    .source(fields.length > 5 ? fields[5] : null)
-                    .createdAt(Instant.now())
-                    .build();
-                
-                logEntryRepository.save(logEntry);
-            }
-        }
-    }
-}
-```
-
-## Step 7: Chart Integration
-
-### JavaScript for Dashboard Charts
 ```javascript
-// Error Rate Chart
-const errorRateCtx = document.getElementById('errorRateChart').getContext('2d');
-const errorRateChart = new Chart(errorRateCtx, {
-    type: 'bar',
-    data: {
-        labels: /* Thymeleaf will inject service names */,
-        datasets: [{
-            label: 'Error Rate (%)',
-            data: /* Thymeleaf will inject error rates */,
-            backgroundColor: 'rgba(239, 68, 68, 0.5)',
-            borderColor: 'rgba(239, 68, 68, 1)',
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        scales: {
-            y: {
-                beginAtZero: true,
-                max: 100
-            }
-        }
-    }
+// services/api.js
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL;
+
+export const api = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
 });
 
-// Log Volume Time Series
-const volumeCtx = document.getElementById('volumeChart').getContext('2d');
-const volumeChart = new Chart(volumeCtx, {
-    type: 'line',
-    data: {
-        labels: /* Thymeleaf will inject timestamps */,
-        datasets: [{
-            label: 'Log Volume',
-            data: /* Thymeleaf will inject volumes */,
-            borderColor: 'rgba(59, 130, 246, 1)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-        scales: {
-            y: {
-                beginAtZero: true
-            }
-        }
-    }
+// Add request/response interceptors
+api.interceptors.response.use(
+  response => response.data,
+  error => Promise.reject(error)
+);
+```
+
+### State Management
+
+Use Redux Toolkit for complex state:
+
+```javascript
+// store/slices/analyticsSlice.js
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+
+export const fetchAnalytics = createAsyncThunk(
+  'analytics/fetchAnalytics',
+  async (params) => {
+    // API call
+  }
+);
+
+const analyticsSlice = createSlice({
+  name: 'analytics',
+  initialState: { data: [], loading: false },
+  extraReducers: (builder) => {
+    builder.addCase(fetchAnalytics.fulfilled, (state, action) => {
+      state.data = action.payload;
+    });
+  },
+});
+
+export default analyticsSlice.reducer;
+```
+
+## Testing
+
+### Unit Tests
+
+```bash
+npm run test
+```
+
+### Test Structure
+
+```javascript
+// components/Analytics.test.jsx
+import { render, screen } from '@testing-library/react';
+import Analytics from './Analytics';
+
+describe('Analytics Component', () => {
+  it('should render analytics data', () => {
+    render(<Analytics />);
+    expect(screen.getByText(/analytics/i)).toBeInTheDocument();
+  });
 });
 ```
 
-## Step 8: Application Properties
+### Coverage
 
-### Update application.properties
-```properties
-# Thymeleaf Configuration
-spring.thymeleaf.cache=false
-spring.thymeleaf.mode=HTML
-spring.thymeleaf.prefix=classpath:/templates/
-spring.thymeleaf.suffix=.html
-
-# MVC Configuration
-spring.mvc.view.prefix=/templates/
-spring.mvc.view.suffix=.html
-
-# File Upload Configuration
-spring.servlet.multipart.max-file-size=10MB
-spring.servlet.multipart.max-request-size=10MB
-
-# Security Configuration
-spring.security.user.name=admin
-spring.security.user.password=password123
+Run coverage report:
+```bash
+npm run test:coverage
 ```
 
-## Step 9: Testing
+Target: 80%+ coverage
 
-### Manual Testing Checklist:
-1. **Dashboard**: Verify statistics and charts load correctly
-2. **Navigation**: Test sidebar and mobile responsiveness
-3. **Retention Policies**: Test CRUD operations
-4. **Log Management**: Test filtering, pagination, and export
-5. **CSV Import**: Test file upload and processing
-6. **Analytics**: Test charts and filters
-7. **Security**: Verify role-based access control
+## Building for Production
 
-### Automated Testing:
-```java
-@WebMvcTest(WebController.class)
-class WebControllerTest {
-    
-    @Test
-    void shouldReturnDashboardPage() {
-        mockMvc.perform(get("/"))
-            .andExpect(status().isOk())
-            .andExpect(view().name("dashboard"))
-            .andExpect(model().attributeExists("totalLogs", "errorCount"));
-    }
-    
-    @Test
-    void shouldReturnRetentionPoliciesPage() {
-        mockMvc.perform(get("/retention"))
-            .andExpect(status().isOk())
-            .andExpect(view().name("retention"));
-    }
-}
+### Build
+
+```bash
+npm run build
 ```
 
-## Step 10: Deployment Considerations
+Output: `dist/` directory
 
-### Production Configuration:
-1. **Enable Thymeleaf Caching**: `spring.thymeleaf.cache=true`
-2. **Static Resources**: Configure CDN for CSS/JS
-3. **Database**: Optimize queries for dashboard performance
-4. **Security**: Enable CSRF protection for forms
-5. **Monitoring**: Add health check endpoints
+### Preview
 
-### Performance Optimization:
-1. **Database Indexing**: Ensure proper indexes for dashboard queries
-2. **Caching**: Cache analytics data where appropriate
-3. **Pagination**: Implement efficient pagination for large datasets
-4. **Compression**: Enable response compression
+```bash
+npm run preview
+```
+
+### Deployment
+
+1. Build the project
+2. Deploy `dist/` folder to hosting service
+3. Configure environment variables
+4. Set up reverse proxy for API calls
+
+## API Endpoints Reference
+
+### Analytics Endpoints
+
+- `GET /api/analytics/error-rate` - Error rate per service
+- `GET /api/analytics/common-errors` - Top error messages
+- `GET /api/analytics/volume` - Log volume by time
+
+### Health Endpoints
+
+- `GET /api/health/dashboard` - Service health status
+
+### Log Endpoints
+
+- `GET /api/logs` - Search logs
+- `POST /api/logs` - Ingest logs
+
+## Performance Optimization
+
+- Use React.memo for expensive components
+- Implement code splitting with React.lazy
+- Optimize images and assets
+- Use virtual scrolling for large lists
+- Implement request debouncing/throttling
 
 ## Troubleshooting
 
-### Common Issues:
-1. **Template Not Found**: Check template path and file extension
-2. **CSS Not Loading**: Verify static resource configuration
-3. **Form Submission Errors**: Check CSRF token configuration
-4. **Chart Not Rendering**: Verify Chart.js CDN and data format
-5. **CSV Export Issues**: Check content-type headers and encoding
+### API Connection Issues
 
-### Debug Tips:
-1. Enable Thymeleaf debug logging: `logging.level.org.thymeleaf=DEBUG`
-2. Check browser developer tools for JavaScript errors
-3. Verify network requests and responses
-4. Test with different browsers for compatibility
+1. Verify backend is running on correct port
+2. Check VITE_API_URL environment variable
+3. Check browser console for CORS errors
+4. Verify API response format
 
-## Next Steps
+### Build Issues
 
-1. **Enhanced Analytics**: Add more sophisticated chart types
-2. **Real-time Updates**: Implement WebSocket for live log streaming
-3. **Advanced Filtering**: Add date range and regex search
-4. **User Management**: Add user profile and preference management
-5. **API Integration**: Add REST API for mobile clients
+1. Clear node_modules: `rm -rf node_modules && npm install`
+2. Clear cache: `npm cache clean --force`
+3. Check Node.js version: `node --version`
 
-This implementation provides a solid foundation for a production-ready log management dashboard with server-side rendering, ensuring good performance and security.
+## Contributing
+
+1. Create feature branch: `git checkout -b feature/feature-name`
+2. Follow code style guidelines
+3. Write tests for new features
+4. Submit pull request with description
+5. Ensure CI/CD passes
+
+## Resources
+
+- [React Documentation](https://react.dev)
+- [Vite Documentation](https://vitejs.dev)
+- [Redux Toolkit Documentation](https://redux-toolkit.js.org)
+- [Tailwind CSS Documentation](https://tailwindcss.com)
+
+## Support
+
+For issues or questions, contact the development team or create an issue in the repository.

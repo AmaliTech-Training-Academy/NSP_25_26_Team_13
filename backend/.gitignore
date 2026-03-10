@@ -34,8 +34,15 @@ build/
 
 ### VS Code ###
 .vscode/
-.system.md
-.pr.md
-.gitmessage.md
-.new.md
-.frontend.md
+system.md
+pr.md
+gitmessage.md
+new.md
+frontend.md
+FRONTEND_IMPLEMENTATION_GUIDE.md
+FRONTEND_IMPROVEMENTS.md
+FRONTEND_PR_SUMMARY.md
+README_FRONTEND.md
+PROJECT_STRUCTURE.md
+COMPLETION_REPORT.md
+DOCUMENTATION_INDEX.md
