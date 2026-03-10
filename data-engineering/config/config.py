@@ -1,23 +1,24 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# Load .env file
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(env_path)
 
-
-
-# Fetch environment variables
+# Fetch environment variables correctly
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
+    "host": os.getenv("DB_HOST", "localhost"),  # use DB_HOST
     "port": os.getenv("DB_PORT", "5432"),
-    "database": os.getenv("DB_NAME", "logstream"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME", ""),
+    "user": os.getenv("DB_USERNAME", ""),
+    "password": os.getenv("DB_PASSWORD", ""),
 }
 
-# Ensure required credentials are provided
+# Ensure credentials exist
 if not DB_CONFIG["user"] or not DB_CONFIG["password"]:
     raise EnvironmentError(
-        "Database user or password not set. Please set DB_USER and DB_PASSWORD environment variables."
+        "Database user or password not set. Please set DB_USERNAME and DB_PASSWORD in .env"
     )
 
 DATABASE_URL = (
