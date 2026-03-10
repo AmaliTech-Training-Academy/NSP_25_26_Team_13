@@ -1,9 +1,3 @@
-"""
-LogStream Retention Enforcer - Per-Service Archival
-Enforces configurable retention policies per service and log level.
-When archival is enabled, moves expired rows to logs_archive table
-and exports them to CSV before permanently deleting them.
-"""
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
@@ -23,14 +17,10 @@ def get_retention_policies():
 
 def enforce_retention():
     """
-    Enforces retention policies by:
-    1. Building per-service WHERE clauses from the retention_policies table.
-    2. If ARCHIVAL_ENABLED:
-       a. Inserting expired rows into logs_archive table.
-       b. Exporting them to a dated CSV backup on disk.
-    3. Deleting expired rows from the live log_entries table.
-
-    If no policies exist, falls back to a global 30-day default for all services/levels.
+    Enforces retention policies with a Disk-First safety approach:
+    1. SELECT expired rows into memory.
+    2. Write to CSV (confirming disk backup).
+    3. Perform DB Transaction (INSERT to archive -> DELETE from live).
     """
     policies = get_retention_policies()
     if policies.empty:
@@ -40,55 +30,66 @@ def enforce_retention():
     archive_dir = Path(__file__).parent.parent / "archives"
     archive_dir.mkdir(parents=True, exist_ok=True)
 
-    with engine.begin() as conn:
-        for _, policy in policies.iterrows():
-            service = policy.get("service_name")  # None = global
-            level = policy.get("log_level")        # None = all levels
-            retention_days = int(policy["retention_days"])
-            cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+    for _, policy in policies.iterrows():
+        service = policy.get("service_name")
+        level = policy.get("log_level")
+        retention_days = int(policy["retention_days"])
+        cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
 
-            # Build the dynamic WHERE clause
-            conditions = ["timestamp < :cutoff"]
-            params = {"cutoff": cutoff_date}
+        # Build the dynamic WHERE clause
+        conditions = ["timestamp < :cutoff"]
+        params = {"cutoff": cutoff_date}
 
-            if pd.notna(service):
-                conditions.append("service_name = :service")
-                params["service"] = service
+        if pd.notna(service):
+            conditions.append("service_name = :service")
+            params["service"] = service
 
-            if pd.notna(level):
-                conditions.append("level = :level")
-                params["level"] = level
+        if pd.notna(level):
+            conditions.append("level = :level")
+            params["level"] = level
 
-            where_clause = " AND ".join(conditions)
-            policy_label = f"{service or 'ALL_SERVICES'}_{level or 'ALL_LEVELS'}_{cutoff_date.strftime('%Y%m%d')}"
+        where_clause = " AND ".join(conditions)
+        
+        # Unique timestamp for filename to prevent overwrites
+        file_ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        policy_label = f"{service or 'ALL'}_{level or 'ALL'}_{file_ts}"
 
-            try:
+        try:
+            # 1. SELECT DATA FIRST
+            # We pull the data into a DataFrame before starting a transaction
+            select_query = text(f"SELECT * FROM log_entries WHERE {where_clause}")
+            with engine.connect() as conn:
+                expired_data = pd.read_sql(select_query, conn, params=params)
+
+            if expired_data.empty:
+                logger.info(f"No expired logs found for policy [{policy_label}]")
+                continue
+
+            # 2. WRITE TO CSV (OUTSIDE TRANSACTION)
+            # If this fails, the DB remains untouched.
+            if ARCHIVAL_ENABLED:
+                archive_file = archive_dir / f"archived_{policy_label}.csv"
+                expired_data.to_csv(archive_file, index=False)
+                logger.info(f"Disk backup successful: {archive_file}")
+
+            # 3. DATABASE MUTATION (INSIDE TRANSACTION)
+            # Now that the CSV is safe, we move/delete the rows in the DB.
+            with engine.begin() as transaction_conn:
                 if ARCHIVAL_ENABLED:
-                    # Step 1: Archive expired rows to logs_archive table
                     archive_query = text(
                         f"INSERT INTO logs_archive (id, timestamp, level, source, message, service_name, created_at, archived_at) "
                         f"SELECT id, timestamp, level, source, message, service_name, created_at, NOW() "
                         f"FROM log_entries WHERE {where_clause}"
                     )
-                    result = conn.execute(archive_query, params)
-                    logger.info(f"Archived {result.rowcount} rows to logs_archive for policy [{policy_label}]")
+                    res_arch = transaction_conn.execute(archive_query, params)
+                    logger.info(f"Archived {res_arch.rowcount} rows to logs_archive table.")
 
-                    # Step 2: Export to CSV on disk as backup
-                    select_query = text(f"SELECT * FROM log_entries WHERE {where_clause}")
-                    expired_data = pd.read_sql(select_query, conn, params=params)
-
-                    if not expired_data.empty:
-                        archive_file = archive_dir / f"archived_{policy_label}.csv"
-                        expired_data.to_csv(archive_file, index=False)
-                        logger.info(f"CSV backup: {len(expired_data)} rows to {archive_file}")
-
-                # Step 3: Delete expired rows from live table
                 delete_query = text(f"DELETE FROM log_entries WHERE {where_clause}")
-                result = conn.execute(delete_query, params)
-                logger.info(f"Deleted {result.rowcount} expired rows for policy [{policy_label}]")
+                res_del = transaction_conn.execute(delete_query, params)
+                logger.info(f"Deleted {res_del.rowcount} rows from live table.")
 
-            except Exception as e:
-                logger.error(f"Failed to enforce policy [{policy_label}]: {e}")
+        except Exception as e:
+            logger.error(f"Failed to enforce policy [{policy_label}]: {e}")
 
 
 if __name__ == "__main__":
