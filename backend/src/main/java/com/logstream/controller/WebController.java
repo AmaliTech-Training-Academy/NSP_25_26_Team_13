@@ -77,7 +77,14 @@ public class WebController {
     public String retentionPolicies(Model model) {
         model.addAttribute("pageTitle", "Retention Policies");
         model.addAttribute("sidebarCollapsed", false);
-        model.addAttribute("policies", retentionService.getPolicies());
+        
+        try {
+            model.addAttribute("policies", retentionService.getPolicies());
+        } catch (Exception e) {
+            model.addAttribute("policies", java.util.Collections.emptyList());
+            model.addAttribute("error", "Unable to load policies: " + e.getMessage());
+        }
+        
         model.addAttribute("newPolicy", new RetentionPolicy());
         return "retention";
     }
