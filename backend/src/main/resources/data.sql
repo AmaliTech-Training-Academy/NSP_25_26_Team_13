@@ -1,3 +1,7 @@
+-- Add metadata column if it doesn't exist
+ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS metadata TEXT;
+ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS trace_id VARCHAR(255);
+
 -- Seed admin user (password: password123)
 INSERT INTO users (id, email, name, password, role, active, created_at)
 VALUES (1, 'admin@amalitech.com', 'Admin User', '$2a$12$Qu7RJC3wCVyqn8DkdItaqOJ2W4IBrsVa30gwfEYS116PG3FG2isSC', 'ADMIN',
