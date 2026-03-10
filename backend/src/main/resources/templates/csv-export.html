@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <th:block th:fragment="csv-content">ID,Timestamp,Service,Level,Message,Source,Created At
+<th:block th:each="log : ${logs}"><span th:text="${log.id}"></span>,<span th:text="${#temporals.format(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}"></span>,<span th:text="${log.serviceName}"></span>,<span th:text="${log.level}"></span>,<span th:text="${#strings.escapeXml(log.message)}"></span>,<span th:text="${log.source}"></span>,<span th:text="${#temporals.format(log.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></span>
+</th:block>
+    </th:block>
+</body>
+</html>
