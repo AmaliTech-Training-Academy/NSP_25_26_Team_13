@@ -39,9 +39,7 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
                         .requestMatchers("/login", "/logout", "/404", "/access-denied").permitAll()
-                        .requestMatchers("/").authenticated()
-                        .requestMatchers("/dashboard", "/logs", "/analytics").authenticated()
-                        .requestMatchers("/retention/**", "/logs/import/**").authenticated()
+                        .requestMatchers("/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(sm -> sm
