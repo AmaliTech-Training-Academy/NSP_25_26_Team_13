@@ -22,6 +22,7 @@ Key design decisions
 
 # Resolved relative to this file so it works regardless of working directory.
 import argparse
+from pathlib import Path
 LOG_DIR = Path(__file__).resolve().parent.parent / "data"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 import json
@@ -29,7 +30,8 @@ import random
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta,timezone
-from pathlib import Path
+from scripts.utils.logger import get_logger 
+
 
 from config.config import (
     ERROR_SPIKES,
@@ -41,7 +43,7 @@ from config.config import (
     _HOUR_WEIGHTS,
 )
 
-logger = get_logger(__name__)
+logger = get_logger("data_generator")
 
 #Instead of using print, I will be using loggers 
 
