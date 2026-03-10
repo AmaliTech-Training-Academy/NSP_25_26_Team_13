@@ -40,6 +40,11 @@ public class WebController {
         return "logout";
     }
 
+    @GetMapping("/logout-page")
+    public String logoutPage() {
+        return "logout";
+    }
+
     @GetMapping("/404")
     public String notFound() {
         return "404";

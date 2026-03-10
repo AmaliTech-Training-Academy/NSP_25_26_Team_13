@@ -38,12 +38,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/health/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                        .requestMatchers("/login", "/logout", "/404", "/access-denied").permitAll()
+                        .requestMatchers("/login", "/logout-page", "/logout", "/404", "/access-denied").permitAll()
                         .requestMatchers("/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(sm -> sm
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login?loggedOut=true")
+                        .permitAll());
         return http.build();
     }
 
