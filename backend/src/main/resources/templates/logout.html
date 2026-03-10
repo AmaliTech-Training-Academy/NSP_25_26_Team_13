@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0;url=/login?loggedOut=true">
+    <title>Logging out...</title>
+</head>
+<body>
+    <script>
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_email');
+        localStorage.removeItem('user_role');
+        window.location.href = '/login?loggedOut=true';
+    </script>
+    <p>Logging out...</p>
+    <a href="/login?loggedOut=true">Click here if you are not redirected</a>
+</body>
+</html>
