@@ -7,4 +7,7 @@
 # Run standard health check every 15 minutes
 */15 * * * * python /app/scripts/etl_pipeline.py --mode standard >> /app/logs/standard_run.log 2>&1
 
+# Run retention enforcement daily at 2 AM (after daily aggregation)
+0 2 * * * cd /app && python scripts/retention_policy.py >> /app/logs/retention.log 2>&1
+
 # Empty line at end of file
