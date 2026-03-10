@@ -14,8 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/logs")
 @RequiredArgsConstructor
@@ -31,13 +29,6 @@ public class LogController {
         LogEntryResponse response = ingestionService.ingestLog(request);
         ApiResponse<LogEntryResponse> apiResponse = ApiResponse.success("Log ingested successfully", response);
         return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
-    }
-
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<LogEntryResponse>>> getLogs() {
-        List<LogEntryResponse> logs = ingestionService.getLogs();
-        ApiResponse<List<LogEntryResponse>> apiResponse = ApiResponse.success("Logs retrieved successfully", logs);
-        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 
     @PostMapping("/batch")

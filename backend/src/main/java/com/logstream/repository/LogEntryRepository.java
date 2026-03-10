@@ -7,7 +7,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.List;
@@ -32,7 +31,6 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
 
     @Query("SELECT l.serviceName, l.level, COUNT(l) FROM LogEntry l GROUP BY l.serviceName, l.level")
     List<Object[]> countGroupByServiceAndLevel();
-
     @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.level = 'ERROR' AND l.createdAt >= :since GROUP BY l.serviceName")
     List<Object[]> countErrorsByServiceAndCreatedAtAfter(@Param("since") Instant since);
 
@@ -63,5 +61,4 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
     @Modifying
     @Query("DELETE FROM LogEntry l WHERE l.timestamp < :cutoff")
     void deleteOlderThan(@Param("cutoff") Instant cutoff);
-
 }

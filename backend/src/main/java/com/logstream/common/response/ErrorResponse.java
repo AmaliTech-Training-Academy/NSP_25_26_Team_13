@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 import java.util.Map;
 
 @Data
@@ -17,8 +16,5 @@ import java.util.Map;
 public class ErrorResponse {
     private String message;
     private int status;
-
-    @Builder.Default
-    private Instant timestamp = Instant.now();
     private Map<String, String> errors;
 }
