@@ -6,21 +6,37 @@
     <title>LogStream - Service Health Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+    <style>
+        .stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <div class="min-h-screen">
         <!-- Header -->
-        <header class="bg-white shadow">
+        <header class="bg-white shadow-sm border-b border-gray-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div class="flex justify-between items-center">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">LogStream</h1>
-                        <p class="text-gray-600 mt-1">Service Health Dashboard</p>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-stream text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-2xl font-bold text-gray-900">LogStream</h1>
+                                <p class="text-sm text-gray-500">Service Health Dashboard</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="text-right">
-                        <p class="text-sm text-gray-600">Last Updated: <span id="lastUpdated">--:--:--</span></p>
-                        <button id="refreshBtn" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                        <p class="text-sm text-gray-500">Last Updated: <span id="lastUpdated" class="font-medium text-gray-700">--:--:--</span></p>
+                        <button id="refreshBtn" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
                             <i class="fas fa-sync-alt mr-2"></i>Refresh
                         </button>
                     </div>
@@ -32,51 +48,61 @@
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <!-- Statistics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="stat-card bg-white rounded-xl shadow p-6 border-l-4 border-blue-500">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-600 text-sm font-medium">Total Services</p>
+                            <p class="text-gray-500 text-sm font-medium">Total Services</p>
                             <p class="text-3xl font-bold text-gray-900 mt-2" id="totalServices">0</p>
                         </div>
-                        <i class="fas fa-server text-blue-600 text-3xl opacity-20"></i>
+                        <div class="w-14 h-14 bg-blue-50 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-server text-blue-600 text-2xl"></i>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="stat-card bg-white rounded-xl shadow p-6 border-l-4 border-green-500">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-600 text-sm font-medium">Healthy</p>
+                            <p class="text-gray-500 text-sm font-medium">Healthy</p>
                             <p class="text-3xl font-bold text-green-600 mt-2" id="healthyCount">0</p>
                         </div>
-                        <i class="fas fa-check-circle text-green-600 text-3xl opacity-20"></i>
+                        <div class="w-14 h-14 bg-green-50 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="stat-card bg-white rounded-xl shadow p-6 border-l-4 border-yellow-500">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-600 text-sm font-medium">Degraded</p>
+                            <p class="text-gray-500 text-sm font-medium">Degraded</p>
                             <p class="text-3xl font-bold text-yellow-600 mt-2" id="degradedCount">0</p>
                         </div>
-                        <i class="fas fa-exclamation-circle text-yellow-600 text-3xl opacity-20"></i>
+                        <div class="w-14 h-14 bg-yellow-50 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-exclamation-circle text-yellow-600 text-2xl"></i>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="stat-card bg-white rounded-xl shadow p-6 border-l-4 border-red-500">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-600 text-sm font-medium">Unhealthy</p>
+                            <p class="text-gray-500 text-sm font-medium">Unhealthy</p>
                             <p class="text-3xl font-bold text-red-600 mt-2" id="unhealthyCount">0</p>
                         </div>
-                        <i class="fas fa-times-circle text-red-600 text-3xl opacity-20"></i>
+                        <div class="w-14 h-14 bg-red-50 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-times-circle text-red-600 text-2xl"></i>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Health Table -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-xl font-bold text-gray-900">Service Health Status</h2>
+            <div class="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <h2 class="text-lg font-bold text-gray-900 flex items-center">
+                        <i class="fas fa-heartbeat mr-3 text-red-500"></i>Service Health Status
+                    </h2>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -114,6 +140,16 @@
         </main>
     </div>
 
+    <script th:inline="javascript">
+        // Update timestamp
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            document.getElementById('lastUpdated').textContent = timeStr;
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
     <script src="/js/dashboard.js"></script>
 </body>
 </html>
