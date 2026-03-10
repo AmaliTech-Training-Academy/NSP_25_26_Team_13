@@ -125,7 +125,10 @@
             }
         });
 
-        if (localStorage.getItem('jwt_token')) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isLogout = urlParams.get('loggedOut') === 'true';
+        
+        if (!isLogout && localStorage.getItem('jwt_token')) {
             window.location.href = '/';
         }
     </script>

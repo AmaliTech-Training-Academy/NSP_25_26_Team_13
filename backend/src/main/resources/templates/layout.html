@@ -144,15 +144,6 @@
     </div>
 
     <script th:inline="javascript">
-        const jwtToken = localStorage.getItem('jwt_token');
-        
-        if (!jwtToken && !window.location.pathname.startsWith('/login') && 
-            !window.location.pathname.startsWith('/logout') && 
-            !window.location.pathname.startsWith('/404') &&
-            !window.location.pathname.startsWith('/access-denied')) {
-            window.location.href = '/login';
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
             const sidebar = document.getElementById('sidebar');
