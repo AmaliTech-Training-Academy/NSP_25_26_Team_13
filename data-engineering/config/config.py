@@ -2,34 +2,31 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-""" 
+
+# ── Archival Strategy ─────────────────────────────────────────────────────────
+# Controls whether expired logs are moved to logs_archive table before deletion.
+# Default: disabled (for MVP). Set to "true" in .env to enable.
+ARCHIVAL_ENABLED = os.getenv("ARCHIVAL_ENABLED", "false").lower() == "true"
+
 # Fetch environment variables
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
     "port": os.getenv("DB_PORT", "5432"),
     "database": os.getenv("DB_NAME", "logstream"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", "postgres"),
 }
-
-# Ensure required credentials are provided
-if not DB_CONFIG["user"] or not DB_CONFIG["password"]:
-    raise EnvironmentError(
-        "Database user or password not set. Please set DB_USER and DB_PASSWORD environment variables."
-    )
 
 DATABASE_URL = (
     f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
     f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
 )
- """
 
 
 
 
 
 
-# ── Services ──────────────────────────────────────────────────────────────────
 # error_rate is informational only — actual generation is driven by LEVEL_WEIGHTS
 # and spike overrides in ERROR_SPIKES.
 SERVICES = {
@@ -38,10 +35,9 @@ SERVICES = {
     "order-service":        {"error_rate": 0.08},
     "notification-service": {"error_rate": 0.03},
     "api-gateway":          {"error_rate": 0.02},
-    "user-service":         {"error_rate": 0.04},
 }
 
-# ── Error Spike Configuration ─────────────────────────────────────────────────
+
 # num_spikes   : how many distinct spike windows to pre-place in the timeline
 # duration_minutes : how long each spike window lasts
 # error_weight : the ERROR level weight during the spike (baseline is 0.08)
@@ -61,7 +57,7 @@ ERROR_SPIKES = {
     },
 }
 
-# ── Service Outage Configuration ──────────────────────────────────────────────
+#Service Outage Configuration 
 # num_outages      : how many distinct outage windows to pre-place
 # duration_minutes : how long each outage lasts (service emits NO logs)
 #
@@ -77,12 +73,12 @@ SERVICE_OUTAGES = {
     },
 }
 
-# ── Log Levels & Baseline Weights ─────────────────────────────────────────────
+# Log Levels & Baseline Weights
 # INFO=60%, DEBUG=20%, WARN=10%, ERROR=8%, TRACE=2%
 LEVELS        = ["INFO",  "DEBUG", "WARN", "ERROR", "TRACE"]
 LEVEL_WEIGHTS = [ 0.60,   0.20,    0.10,   0.08,    0.02  ]
 
-# ── Business-Hours Timestamp Weighting ────────────────────────────────────────
+# Business-Hours Timestamp Weighting 
 # 24 values, one per hour 00–23.
 # Higher value = more likely a log falls in that hour.
 _HOUR_WEIGHTS = [
@@ -92,7 +88,7 @@ _HOUR_WEIGHTS = [
     1.5, 1.2, 1.0, 0.9, 0.7, 0.6,   # 18–23  (evening wind-down)
 ]
 
-# ── Message Templates ─────────────────────────────────────────────────────────
+# Message Templates
 # {n} is replaced at generation time with a random integer.
 ERROR_MESSAGES = [
     "Database connection timeout after {n}ms",
@@ -154,7 +150,7 @@ MESSAGE_MAP = {
     "TRACE": TRACE_MESSAGES,
 }
 
-# ── Validation Constants ──────────────────────────────────────────────────────
+# Validation Constants
 VALID_LEVELS  = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR"}
 REQUIRED_COLS = {"id", "timestamp", "level", "source", "message",
                  "service_name", "created_at"}

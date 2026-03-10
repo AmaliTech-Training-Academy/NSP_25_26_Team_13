@@ -64,6 +64,23 @@ CREATE TABLE retention_policies (
     UNIQUE (service_name, log_level) -- prevent duplicate policies
 );
 
+-- 4. Archived Logs (same schema as log_entries, non-partitioned)
+-- Expired logs are moved here before deletion when archival is enabled.
+CREATE TABLE logs_archive (
+    id UUID DEFAULT gen_random_uuid(),
+    timestamp TIMESTAMPTZ NOT NULL,
+    level VARCHAR(10) NOT NULL,
+    source VARCHAR(100),
+    message TEXT NOT NULL,
+    service_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    archived_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (id)
+);
+
+-- Indexes for historical archive queries
+CREATE INDEX idx_archive_service_ts ON logs_archive (service_name, timestamp DESC);
+CREATE INDEX idx_archive_level ON logs_archive (level, timestamp DESC);
 
 
 -- Indexing for authentication
@@ -84,3 +101,24 @@ ON log_entries USING BRIN (timestamp); -- BRIN is extremely efficient for large 
 -- For Keyword search in the message field
 CREATE INDEX idx_logs_msg_search 
 ON log_entries USING GIN (message gin_trgm_ops);
+
+-- Metrics Aggregation Tables
+CREATE TABLE log_metrics_hourly (
+    service_name VARCHAR(100) NOT NULL,
+    hour_timestamp TIMESTAMPTZ NOT NULL,
+    total_count BIGINT DEFAULT 0,
+    error_count BIGINT DEFAULT 0,
+    PRIMARY KEY (service_name, hour_timestamp)
+);
+
+CREATE TABLE log_metrics_daily (
+    service_name VARCHAR(100) NOT NULL,
+    day_timestamp TIMESTAMPTZ NOT NULL,
+    total_count BIGINT DEFAULT 0,
+    error_count BIGINT DEFAULT 0,
+    PRIMARY KEY (service_name, day_timestamp)
+);
+
+-- Index for fast analytics queries
+CREATE INDEX idx_metrics_hourly_ts ON log_metrics_hourly (hour_timestamp DESC);
+CREATE INDEX idx_metrics_daily_ts ON log_metrics_daily (day_timestamp DESC);

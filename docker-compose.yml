@@ -1,6 +1,27 @@
-version: "3.9"
+# =============================================================
+# LogStream — Standardized Full-Stack Configuration
+# =============================================================
+
+# 1. TEMPLATES (The "Don't Repeat Yourself" block)
+x-de-template: &de-template
+  build: ./data-engineering
+  env_file: .env
+  environment:
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_NAME: ${DB_NAME}
+    DB_USER: ${DB_USERNAME}
+    DB_PASSWORD: ${DB_PASSWORD}
+    PYTHONPATH: /app
+  volumes:
+    - de_data:/app/data
+    - de_archives:/app/archives
+  depends_on:
+    postgres:
+      condition: service_healthy
 
 services:
+  # ── Infrastructure ──────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: logstream-postgres
@@ -12,24 +33,82 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./data-engineering/db/ddl/schema_ddl.sql:/docker-entrypoint-initdb.d/01_schema_ddl.sql:ro
+      - ./data-engineering/db/dml/analytics.sql:/docker-entrypoint-initdb.d/02_analytics.sql:ro
+      - ./data-engineering/db/dml/init_metabase.sql:/docker-entrypoint-initdb.d/03_metabase.sql:ro
+      - ./devops/db/ensure_metabase_db.sh:/docker-entrypoint-initdb.d/04_ensure_metabase_db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U logstream"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ── Application Services ────────────────────────────────────
   backend:
     build: ./backend
     container_name: logstream-backend
     ports:
-      - "8080:8080"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logstream
-      SPRING_DATASOURCE_USERNAME: logstream
-      SPRING_DATASOURCE_PASSWORD: logstream123
+      - "${BACKEND_PORT}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
+
+  # ── Data Engineering (The Refactored Trio) ──────────────────
+
+  # 1. The Scheduled ETL Pipeline
+  data-engineering:
+    <<: *de-template
+    container_name: logstream-data-engineering
+    # Overriding the command to add the 15-minute loop
+    command: >
+      sh -c "
+        echo 'Waiting 10s for backend...' && sleep 10 &&
+        while true; do
+          python scripts/etl_pipeline.py;
+          echo 'Next run in 15 minutes...';
+          sleep 900;
+        done
+      "
+    restart: on-failure
+
+  # 2. The Interactive Shell (for manual runs)
+  data-engine:
+    <<: *de-template
+    container_name: logstream-data-engine
+    volumes:
+      - de_data:/app/data
+      - ./data-engineering/scripts:/app/scripts
+      - ./data-engineering/tests:/app/tests
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
+
+  # 3. The Visualization Dashboard (Easy to enable now)
+  # dashboard:
+  #   <<: *de-template
+  #   container_name: logstream-dashboard
+  #   ports:
+  #     - "8050:8050"
+  #   command: python scripts/dashboard.py
+
+  # ── Analytics ───────────────────────────────────────────────
+  metabase:
+    image: metabase/metabase:v0.59.x
+    container_name: logstream-metabase
+    env_file: .env
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: ${DB_USERNAME}
+      MB_DB_PASS: ${DB_PASSWORD}
+    ports:
+      - "${METABASE_PORT}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="layout :: head">
+    <title>Retention Policies - LogStream</title>
+</head>
+<body>
+    <div th:replace="layout :: mobile-header"></div>
+    <div th:replace="layout :: sidebar"></div>
+    <div th:replace="layout :: header"></div>
+    <div th:replace="layout :: alerts"></div>
+
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Add Policy Form -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-bold text-gray-900 mb-4">Add New Policy</h2>
+                    <form th:action="@{/retention/add}" method="post" th:object="${newPolicy}" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Service Name</label>
+                            <input type="text" th:field="*{serviceName}" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Retention Days</label>
+                            <input type="number" th:field="*{retentionDays}" min="1" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" th:field="*{archiveEnabled}"
+                                       class="rounded border-gray-300 text-blue-600">
+                                <span class="ml-2 text-sm text-gray-700">Enable Archive</span>
+                            </label>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                            <i class="fas fa-plus mr-2"></i>Add Policy
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Policies Table -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h2 class="text-lg font-bold text-gray-900">Retention Policies</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Service</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Days</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Archive</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr th:each="policy : ${policies}" class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 text-sm text-gray-900" th:text="${policy.serviceName}"></td>
+                                    <td class="px-6 py-4 text-sm text-gray-900" th:text="${policy.retentionDays}"></td>
+                                    <td class="px-6 py-4 text-sm">
+                                        <span th:if="${policy.archiveEnabled}" class="text-green-600">
+                                            <i class="fas fa-check"></i>
+                                        </span>
+                                        <span th:unless="${policy.archiveEnabled}" class="text-gray-400">
+                                            <i class="fas fa-times"></i>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm space-x-2">
+                                        <a th:href="@{/retention/edit/{id}(id=${policy.id})}" class="text-blue-600 hover:text-blue-900">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a th:href="@{/retention/delete/{id}(id=${policy.id})}" class="text-red-600 hover:text-red-900"
+                                           onclick="return confirm('Are you sure?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(policies)}">
+                                    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                        No retention policies found
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
