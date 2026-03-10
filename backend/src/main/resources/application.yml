@@ -19,12 +19,6 @@ spring:
             max-file-size: 50MB
             max-request-size: 50MB
 
-logging:
-    level:
-        org:
-            springframework:
-                security: DEBUG
-
 jwt:
     secret: ${JWT_SECRET:logstream-secret-key-amalitech-2024-secure}
     expiration: 86400000

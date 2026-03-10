@@ -29,20 +29,15 @@ public class GlobalExceptionHandler {
 
         Map<String, String> errors = Stream.concat(
                 ex.getBindingResult().getFieldErrors().stream()
-                        .map(e -> Map.entry(e.getField(), Objects.requireNonNullElse(e.getDefaultMessage(), "Invalid value"))),
+                        .map(e -> Map.entry(e.getField(), Objects.requireNonNull(e.getDefaultMessage()))),
                 ex.getBindingResult().getGlobalErrors().stream()
-                        .map(e -> Map.entry(e.getObjectName(), Objects.requireNonNullElse(e.getDefaultMessage(), "Validation error")))
-        ).collect(Collectors.groupingBy(
-                Map.Entry::getKey,
-                Collectors.mapping(Map.Entry::getValue, Collectors.joining(", "))
-        ));
+                        .map(e -> Map.entry(e.getObjectName(), Objects.requireNonNull(e.getDefaultMessage())))
+        ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                (existing, replacement) -> existing));
 
         log.warn("Validation failure: {}", errors);
-
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.builder()
-                        .errors(errors)
-                        .build());
+                .body(ErrorResponse.builder().errors(errors).build());
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
