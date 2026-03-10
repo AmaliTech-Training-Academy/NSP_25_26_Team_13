@@ -11,8 +11,12 @@ import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
 import com.logstream.service.IngestionService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,9 +26,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@SuppressWarnings("unchecked")
 @ExtendWith(MockitoExtension.class)
 class IngestionServiceTests {
 
@@ -35,156 +41,250 @@ class IngestionServiceTests {
     private ObjectMapper objectMapper;
 
     @InjectMocks
-    private IngestionService ingestionService;
+    private IngestionService service;
 
-    @Test
-    void ingestLog_shouldSaveAndReturnResponse() throws Exception {
-        LogEntryRequest request = LogEntryRequest.builder()
-                .serviceName("payment-service")
-                .level("INFO")
-                .message("Payment processed")
-                .source("api")
-                .traceId("trace123")
-                .metadata(Map.of("orderId", "123"))
-                .build();
+    private LogEntry savedEntry;
 
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"orderId\":\"123\"}");
-
-        LogEntry saved = LogEntry.builder()
+    @BeforeEach
+    void setUp() {
+        savedEntry = LogEntry.builder()
                 .id(UUID.randomUUID())
-                .serviceName("payment-service")
+                .serviceName("auth-service")
                 .level(LogLevel.INFO)
-                .message("Payment processed")
-                .metadata("{\"orderId\":\"123\"}")
-                .source("api")
-                .traceId("trace123")
+                .message("User logged in")
+                .source("com.example.Auth")
+                .traceId("trace-123")
+                .metadata("{\"env\":\"prod\"}")
                 .timestamp(Instant.now())
                 .createdAt(Instant.now())
                 .build();
+    }
 
-        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(saved);
+    @Test
+    void getLogs_repositoryReturnsEntries_mappedToResponseList() {
+        when(logEntryRepository.findAll()).thenReturn(List.of(savedEntry));
 
-        LogEntryResponse response = ingestionService.ingestLog(request);
+        List<LogEntryResponse> result = service.getLogs();
 
-        assertNotNull(response);
-        assertEquals("payment-service", response.getServiceName());
-        assertEquals("INFO", response.getLevel().name());
-        assertEquals("Payment processed", response.getMessage());
+        assertThat(result).hasSize(1);
+        LogEntryResponse response = result.getFirst();
+        assertThat(response.getId()).isEqualTo(savedEntry.getId());
+        assertThat(response.getServiceName()).isEqualTo(savedEntry.getServiceName());
+        assertThat(response.getLevel()).isEqualTo(savedEntry.getLevel());
+        assertThat(response.getMessage()).isEqualTo(savedEntry.getMessage());
+        assertThat(response.getSource()).isEqualTo(savedEntry.getSource());
+        assertThat(response.getTraceId()).isEqualTo(savedEntry.getTraceId());
+        assertThat(response.getMetadata()).isEqualTo(savedEntry.getMetadata());
+    }
 
+    @Test
+    void getLogs_repositoryReturnsEmpty_returnsEmptyList() {
+        when(logEntryRepository.findAll()).thenReturn(List.of());
+
+        assertThat(service.getLogs()).isEmpty();
+    }
+
+    @Test
+    void getLogs_repositoryReturnsMultipleEntries_allMapped() {
+        LogEntry second = LogEntry.builder().id(UUID.randomUUID()).serviceName("svc2")
+                .level(LogLevel.ERROR).message("Boom").timestamp(Instant.now()).build();
+        when(logEntryRepository.findAll()).thenReturn(List.of(savedEntry, second));
+
+        assertThat(service.getLogs()).hasSize(2);
+    }
+
+    @Test
+    void ingestLog_validRequest_savedAndResponseReturned() {
+        LogEntryRequest request = buildRequest("auth-service", "INFO", "User logged in",
+                "com.example.Auth", "trace-123", null);
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
+
+        LogEntryResponse result = service.ingestLog(request);
+
+        assertThat(result.getId()).isEqualTo(savedEntry.getId());
+        assertThat(result.getServiceName()).isEqualTo("auth-service");
+        assertThat(result.getLevel()).isEqualTo(LogLevel.INFO);
         verify(logEntryRepository, times(1)).save(any(LogEntry.class));
-        verify(objectMapper, times(1)).writeValueAsString(request.getMetadata());
     }
 
     @Test
-    void ingestBatch_shouldSaveAllLogs() throws Exception {
-        LogEntryRequest req1 = LogEntryRequest.builder()
-                .serviceName("serviceA")
-                .level("INFO")
-                .message("log1")
-                .metadata(Map.of("key1", "value1"))
-                .build();
+    void ingestLog_lowercaseLevel_normalisedBeforeSave() {
+        LogEntryRequest request = buildRequest("svc", "warn", "msg", null, null, null);
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
-        LogEntryRequest req2 = LogEntryRequest.builder()
-                .serviceName("serviceB")
-                .level("ERROR")
-                .message("log2")
-                .metadata(Map.of("key2", "value2"))
-                .build();
+        service.ingestLog(request);
 
-        BatchLogRequest batchRequest = new BatchLogRequest();
-        batchRequest.setLogs(List.of(req1, req2));
-
-        when(objectMapper.writeValueAsString(any()))
-                .thenReturn("{\"key1\":\"value1\"}")
-                .thenReturn("{\"key2\":\"value2\"}");
-
-        when(logEntryRepository.saveAll(anyList()))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        BatchLogEntryResponse response = ingestionService.ingestBatch(batchRequest);
-
-        assertEquals(2, response.getCount());
-
-        verify(logEntryRepository, times(1)).saveAll(anyList());
-        verify(objectMapper, times(2)).writeValueAsString(any());
+        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+        verify(logEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getLevel()).isEqualTo(LogLevel.WARN);
     }
 
     @Test
-    void ingestLog_shouldReturnEmptyMetadataIfSerializationFails() throws Exception {
-        LogEntryRequest request = LogEntryRequest.builder()
-                .serviceName("test-service")
-                .level("INFO")
-                .message("test message")
-                .metadata(Map.of("key", "value"))
-                .build();
+    void ingestLog_mixedCaseLevel_normalisedBeforeSave() {
+        LogEntryRequest request = buildRequest("svc", "Debug", "msg", null, null, null);
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
-        when(objectMapper.writeValueAsString(any()))
-                .thenThrow(new JsonProcessingException("Serialization failed") {
-                });
+        service.ingestLog(request);
 
-        LogEntry saved = LogEntry.builder()
-                .id(UUID.randomUUID())
-                .serviceName("test-service")
-                .level(LogLevel.INFO)
-                .message("test message")
-                .metadata("{}")
-                .timestamp(Instant.now())
-                .createdAt(Instant.now())
-                .build();
-
-        when(logEntryRepository.save(any())).thenReturn(saved);
-
-        LogEntryResponse response = ingestionService.ingestLog(request);
-
-        assertEquals("{}", response.getMetadata());
-        verify(logEntryRepository).save(any(LogEntry.class));
+        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+        verify(logEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getLevel()).isEqualTo(LogLevel.DEBUG);
     }
 
     @Test
-    void ingestLog_shouldThrowBadRequestForInvalidLogLevel() {
-        LogEntryRequest request = LogEntryRequest.builder()
-                .serviceName("service")
-                .level("INVALID")
-                .message("test")
-                .build();
+    void ingestLog_withMetadata_serializedAndStoredOnEntity() throws JsonProcessingException {
+        Map<String, String> metadata = Map.of("env", "prod");
+        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, metadata);
+        when(objectMapper.writeValueAsString(metadata)).thenReturn("{\"env\":\"prod\"}");
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
-        BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> ingestionService.ingestLog(request));
+        service.ingestLog(request);
 
-        assertEquals("Log level must be one of: DEBUG, INFO, WARN, ERROR", ex.getMessage());
+        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+        verify(logEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getMetadata()).isEqualTo("{\"env\":\"prod\"}");
     }
 
     @Test
-    void ingestLog_shouldThrowBadRequestForBlankLogLevel() {
-        LogEntryRequest request = LogEntryRequest.builder()
-                .serviceName("service")
-                .level("  ")
-                .message("test")
-                .build();
+    void ingestLog_nullMetadata_entityMetadataIsNull() {
+        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, null);
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
-        BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> ingestionService.ingestLog(request));
+        service.ingestLog(request);
 
-        assertEquals("Log level is required", ex.getMessage());
+        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+        verify(logEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getMetadata()).isNull();
     }
 
     @Test
-    void getLogs_shouldReturnMappedLogEntryResponses() {
-        LogEntry entry = LogEntry.builder()
-                .id(UUID.randomUUID())
-                .serviceName("service")
-                .level(LogLevel.INFO)
-                .message("log message")
-                .timestamp(Instant.now())
-                .createdAt(Instant.now())
+    void ingestLog_metadataSerializationFails_fallsBackToEmptyJson() throws JsonProcessingException {
+        Map<String, String> metadata = Map.of("k", "v");
+        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, metadata);
+        when(objectMapper.writeValueAsString(metadata)).thenThrow(new JsonProcessingException("boom") {
+        });
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
+
+        service.ingestLog(request);
+
+        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+        verify(logEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getMetadata()).isEqualTo("{}");
+    }
+
+    @Test
+    void ingestLog_entityTimestampIsSetToNowApproximately() {
+        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, null);
+        Instant before = Instant.now();
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
+
+        service.ingestLog(request);
+
+        Instant after = Instant.now();
+        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
+        verify(logEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getTimestamp())
+                .isAfterOrEqualTo(before)
+                .isBeforeOrEqualTo(after);
+    }
+
+
+    @Test
+    void ingestBatch_validRequests_allSavedAndCountReturned() {
+        BatchLogRequest batchRequest = new BatchLogRequest(List.of(
+                buildRequest("svc1", "INFO", "msg1", null, null, null),
+                buildRequest("svc2", "ERROR", "msg2", null, null, null)
+        ));
+
+        BatchLogEntryResponse result = service.ingestBatch(batchRequest);
+
+        assertThat(result.getCount()).isEqualTo(2);
+        ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
+        verify(logEntryRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+    }
+
+    @Test
+    void ingestBatch_emptyList_savesNothingAndReturnsZero() {
+        BatchLogRequest batchRequest = new BatchLogRequest(List.of());
+
+        BatchLogEntryResponse result = service.ingestBatch(batchRequest);
+
+        assertThat(result.getCount()).isZero();
+        ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
+        verify(logEntryRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).isEmpty();
+    }
+
+    @Test
+    void ingestBatch_singleEntry_countIsOne() {
+        BatchLogRequest batchRequest = new BatchLogRequest(List.of(
+                buildRequest("svc", "DEBUG", "msg", null, null, null)
+        ));
+
+        BatchLogEntryResponse result = service.ingestBatch(batchRequest);
+
+        assertThat(result.getCount()).isEqualTo(1);
+    }
+
+    @Test
+    void ingestLog_nullLevel_throwsBadRequestException() {
+        LogEntryRequest request = buildRequest("svc", null, "msg", null, null, null);
+
+        assertThatThrownBy(() -> service.ingestLog(request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Log level is required");
+    }
+
+    @Test
+    void ingestLog_blankLevel_throwsBadRequestException() {
+        LogEntryRequest request = buildRequest("svc", "   ", "msg", null, null, null);
+
+        assertThatThrownBy(() -> service.ingestLog(request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Log level is required");
+    }
+
+    @Test
+    void ingestLog_unknownLevel_throwsBadRequestException() {
+        LogEntryRequest request = buildRequest("svc", "VERBOSE", "msg", null, null, null);
+
+        assertThatThrownBy(() -> service.ingestLog(request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("DEBUG, INFO, WARN, ERROR");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DEBUG", "INFO", "WARN", "ERROR"})
+    void ingestLog_allValidLevels_noExceptionThrown(String level) {
+        LogEntryRequest request = buildRequest("svc", level, "msg", null, null, null);
+        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
+
+        assertThatNoException().isThrownBy(() -> service.ingestLog(request));
+    }
+
+    @Test
+    void ingestBatch_oneEntryHasInvalidLevel_throwsBadRequestExceptionAndNothingSaved() {
+        BatchLogRequest batchRequest = new BatchLogRequest(List.of(
+                buildRequest("svc1", "INFO", "msg1", null, null, null),
+                buildRequest("svc2", "INVALID", "msg2", null, null, null)
+        ));
+
+        assertThatThrownBy(() -> service.ingestBatch(batchRequest))
+                .isInstanceOf(BadRequestException.class);
+        verify(logEntryRepository, never()).saveAll(any());
+    }
+
+    private LogEntryRequest buildRequest(String serviceName, String level, String message,
+                                         String source, String traceId,
+                                         Map<String, String> metadata) {
+        return LogEntryRequest.builder()
+                .serviceName(serviceName)
+                .level(level)
+                .message(message)
+                .source(source)
+                .traceId(traceId)
+                .metadata(metadata)
                 .build();
-
-        when(logEntryRepository.findAll()).thenReturn(List.of(entry));
-
-        List<LogEntryResponse> responses = ingestionService.getLogs();
-
-        assertEquals(1, responses.size());
-        assertEquals("service", responses.getFirst().getServiceName());
-        assertEquals("INFO", responses.getFirst().getLevel().name());
     }
 }
