@@ -1,6 +1,7 @@
 package com.logstream.controller;
 
 import com.logstream.common.response.ApiResponse;
+import com.logstream.dto.RetentionPolicyRequest;
 import com.logstream.model.RetentionPolicy;
 import com.logstream.service.RetentionService;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/retention")
@@ -24,21 +24,16 @@ public class RetentionController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<RetentionPolicy>> createPolicy(@RequestBody Map<String, Object> body) {
-        String serviceName = (String) body.get("serviceName");
-        int days = (int) body.getOrDefault("retentionDays", 30);
-        boolean archive = (boolean) body.getOrDefault("archiveEnabled", false);
-        RetentionPolicy policy = retentionService.createPolicy(serviceName, days, archive);
+    public ResponseEntity<ApiResponse<RetentionPolicy>> createPolicy(@RequestBody RetentionPolicyRequest request) {
+        RetentionPolicy policy = retentionService.createPolicy(request.getServiceName(), request.getRetentionDays(), request.isArchiveEnabled());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Policy created", policy));
     }
 
     @PutMapping("/{serviceName}")
     public ResponseEntity<ApiResponse<RetentionPolicy>> updatePolicy(
             @PathVariable String serviceName,
-            @RequestBody Map<String, Object> body) {
-        int days = (int) body.getOrDefault("retentionDays", 30);
-        boolean archive = (boolean) body.getOrDefault("archiveEnabled", false);
-        RetentionPolicy policy = retentionService.updatePolicy(serviceName, days, archive);
+            @RequestBody RetentionPolicyRequest request) {
+        RetentionPolicy policy = retentionService.updatePolicy(serviceName, request.getRetentionDays(), request.isArchiveEnabled());
         return ResponseEntity.ok(ApiResponse.success("Policy updated", policy));
     }
 
