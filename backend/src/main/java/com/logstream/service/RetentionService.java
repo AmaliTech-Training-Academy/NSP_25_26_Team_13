@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -51,19 +53,26 @@ public class RetentionService {
     @Transactional
     @Scheduled(cron = "0 0 2 * * *") // runs daily at 2am
     public void applyRetention() {
+        Instant now = Instant.now();
         List<RetentionPolicy> policies = retentionPolicyRepository.findAll();
-        List<String> servicesWithPolicy = policies.stream().map(RetentionPolicy::getServiceName).toList();
+        Set<String> servicesWithPolicy = policies.stream()
+                .map(RetentionPolicy::getServiceName)
+                .collect(Collectors.toSet());
 
-        // apply per-service policies
+        applyCustomPolicies(policies, now);
+        applyDefaultRetention(servicesWithPolicy, now);
+    }
+
+    private void applyCustomPolicies(List<RetentionPolicy> policies, Instant now) {
         for (RetentionPolicy policy : policies) {
-            Instant cutoff = Instant.now().minus(policy.getRetentionDays(), ChronoUnit.DAYS);
+            Instant cutoff = now.minus(policy.getRetentionDays(), ChronoUnit.DAYS);
             logEntryRepository.deleteByServiceNameOlderThan(policy.getServiceName(), cutoff);
         }
+    }
 
-        // apply default 30-day retention to services without a custom policy
-        List<String> allServices = logEntryRepository.findDistinctServiceNames();
-        Instant defaultCutoff = Instant.now().minus(DEFAULT_RETENTION_DAYS, ChronoUnit.DAYS);
-        for (String service : allServices) {
+    private void applyDefaultRetention(Set<String> servicesWithPolicy, Instant now) {
+        Instant defaultCutoff = now.minus(DEFAULT_RETENTION_DAYS, ChronoUnit.DAYS);
+        for (String service : logEntryRepository.findDistinctServiceNames()) {
             if (!servicesWithPolicy.contains(service)) {
                 logEntryRepository.deleteByServiceNameOlderThan(service, defaultCutoff);
             }
