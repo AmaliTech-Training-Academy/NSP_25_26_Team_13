@@ -38,7 +38,6 @@ SERVICES = {
     "order-service":        {"error_rate": 0.08},
     "notification-service": {"error_rate": 0.03},
     "api-gateway":          {"error_rate": 0.02},
-    "user-service":         {"error_rate": 0.04},
 }
 
 # ── Error Spike Configuration ─────────────────────────────────────────────────
