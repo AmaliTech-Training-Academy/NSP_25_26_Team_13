@@ -148,11 +148,24 @@ public class WebController {
             }
         }
         
-        var logs = searchService.searchLogs(searchRequest);
-        model.addAttribute("logs", logs);
-        model.addAttribute("currentPage", page);
-        model.addAttribute("totalPages", logs.getTotalPages());
-        model.addAttribute("services", analyticsService.getErrorRatePerService());
+        try {
+            var logs = searchService.searchLogs(searchRequest);
+            model.addAttribute("logs", logs);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("totalPages", logs.getTotalPages());
+        } catch (Exception e) {
+            model.addAttribute("logs", null);
+            model.addAttribute("currentPage", 0);
+            model.addAttribute("totalPages", 0);
+            model.addAttribute("error", "Unable to load logs: " + e.getMessage());
+        }
+        
+        try {
+            model.addAttribute("services", analyticsService.getErrorRatePerService());
+        } catch (Exception e) {
+            model.addAttribute("services", java.util.Collections.emptyList());
+        }
+        
         return "logs";
     }
 
