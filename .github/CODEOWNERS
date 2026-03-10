@@ -1,5 +1,5 @@
 # =============================================================
-# CODEOWNERS - LogStream Team 13
+# CODEOWNERS
 # Defines who must review changes to specific folders
 # =============================================================
 
@@ -7,7 +7,7 @@
 # Global fallback - everyone has access to everything else
 # (README, docker-compose.yml, .gitignore, qa/, etc.)
 # -------------------------------------------------------------
-*                               @nlenjibi @bograh @db-keli @KofiAckah @jill-break @Jerry-Khobby
+# *                               @nlenjibi @bograh @db-keli @KofiAckah @jill-break @Jerry-Khobby
 
 # -------------------------------------------------------------
 # Backend - only backend developers
