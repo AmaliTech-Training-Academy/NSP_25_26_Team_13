@@ -29,9 +29,32 @@ public class WebController {
     private final RetentionService retentionService;
     private final SearchService searchService;
 
+    @GetMapping("/login")
+    public String loginPage(@RequestParam(required = false) String error, Model model) {
+        model.addAttribute("loginError", error);
+        return "login";
+    }
+
+    @GetMapping("/logout")
+    public String logout() {
+        return "logout";
+    }
+
+    @GetMapping("/404")
+    public String notFound() {
+        return "404";
+    }
+
+    @GetMapping("/access-denied")
+    public String accessDenied(@RequestParam(required = false) String message, Model model) {
+        model.addAttribute("message", message);
+        return "access-denied";
+    }
+
     @GetMapping("/")
     public String dashboard(Model model) {
         model.addAttribute("pageTitle", "Dashboard");
+        model.addAttribute("sidebarCollapsed", false);
         
         var healthDashboard = healthService.getHealthDashboard();
         
@@ -48,6 +71,7 @@ public class WebController {
     @GetMapping("/retention")
     public String retentionPolicies(Model model) {
         model.addAttribute("pageTitle", "Retention Policies");
+        model.addAttribute("sidebarCollapsed", false);
         model.addAttribute("policies", retentionService.getPolicies());
         model.addAttribute("newPolicy", new RetentionPolicy());
         return "retention";
@@ -73,6 +97,7 @@ public class WebController {
     @GetMapping("/retention/edit/{id}")
     public String editRetentionPolicy(@PathVariable Long id, Model model) {
         model.addAttribute("pageTitle", "Edit Retention Policy");
+        model.addAttribute("sidebarCollapsed", false);
         model.addAttribute("policy", retentionService.getPolicies().stream()
                 .filter(p -> p.getId().equals(id))
                 .findFirst()
@@ -101,6 +126,7 @@ public class WebController {
             @RequestParam(required = false) String search,
             Model model) {
         model.addAttribute("pageTitle", "Log Management");
+        model.addAttribute("sidebarCollapsed", false);
         
         LogSearchRequest searchRequest = LogSearchRequest.builder()
                 .serviceName(service)
@@ -153,6 +179,7 @@ public class WebController {
     @GetMapping("/logs/import")
     public String importLogsForm(Model model) {
         model.addAttribute("pageTitle", "Import Logs");
+        model.addAttribute("sidebarCollapsed", false);
         return "import-logs";
     }
 
@@ -184,6 +211,7 @@ public class WebController {
             @RequestParam(defaultValue = "hour") String granularity,
             Model model) {
         model.addAttribute("pageTitle", "Analytics");
+        model.addAttribute("sidebarCollapsed", false);
         
         Instant endTime = Instant.now();
         Instant startTime = endTime.minus(7, ChronoUnit.DAYS);
