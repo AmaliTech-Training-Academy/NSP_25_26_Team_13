@@ -35,11 +35,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/logs", "/api/logs/batch").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/health").permitAll()
+                        .requestMatchers("/api/health/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                        .requestMatchers("/", "/dashboard", "/logs", "/analytics").authenticated()
-                        .requestMatchers("/retention/**", "/logs/import/**").hasRole("ADMIN")
+                        .requestMatchers("/login", "/logout", "/404", "/access-denied").permitAll()
+                        .requestMatchers("/").authenticated()
+                        .requestMatchers("/dashboard", "/logs", "/analytics").authenticated()
+                        .requestMatchers("/retention/**", "/logs/import/**").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(sm -> sm
