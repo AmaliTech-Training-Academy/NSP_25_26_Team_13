@@ -1,5 +1,6 @@
 package com.logstream.controller;
 
+import com.logstream.dto.LogSearchRequest;
 import com.logstream.model.RetentionPolicy;
 import com.logstream.service.AnalyticsService;
 import com.logstream.service.HealthService;
@@ -17,7 +18,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.time.Instant;
-import java.util.UUID;
+import java.time.temporal.ChronoUnit;
 
 @Controller
 @RequiredArgsConstructor
@@ -30,48 +31,65 @@ public class WebController {
 
     @GetMapping("/")
     public String dashboard(Model model) {
-        model.addAttribute("totalServices", healthService.getAllServiceHealth().size());
-        model.addAttribute("healthyCount", healthService.getAllServiceHealth().stream()
-                .filter(h -> "GREEN".equals(h.getStatus().toString())).count());
-        model.addAttribute("degradedCount", healthService.getAllServiceHealth().stream()
-                .filter(h -> "YELLOW".equals(h.getStatus().toString())).count());
-        model.addAttribute("unhealthyCount", healthService.getAllServiceHealth().stream()
-                .filter(h -> "RED".equals(h.getStatus().toString())).count());
+        model.addAttribute("pageTitle", "Dashboard");
+        
+        var healthDashboard = healthService.getHealthDashboard();
+        
+        model.addAttribute("totalServices", healthDashboard.size());
+        model.addAttribute("healthyCount", healthDashboard.stream()
+                .filter(h -> "GREEN".equals(h.getStatus())).count());
+        model.addAttribute("degradedCount", healthDashboard.stream()
+                .filter(h -> "YELLOW".equals(h.getStatus())).count());
+        model.addAttribute("unhealthyCount", healthDashboard.stream()
+                .filter(h -> "RED".equals(h.getStatus())).count());
         return "dashboard";
     }
 
     @GetMapping("/retention")
     public String retentionPolicies(Model model) {
-        model.addAttribute("policies", retentionService.getAllPolicies());
+        model.addAttribute("pageTitle", "Retention Policies");
+        model.addAttribute("policies", retentionService.getPolicies());
         model.addAttribute("newPolicy", new RetentionPolicy());
         return "retention";
     }
 
     @PostMapping("/retention/add")
     public String addRetentionPolicy(@ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes) {
-        retentionService.createPolicy(policy);
-        redirectAttributes.addFlashAttribute("success", "Retention policy created successfully");
+        try {
+            retentionService.createPolicy(
+                policy.getServiceName(),
+                policy.getRetentionDays(),
+                policy.isArchiveEnabled()
+            );
+            redirectAttributes.addFlashAttribute("success", "Retention policy created successfully");
+        } catch (UnsupportedOperationException e) {
+            redirectAttributes.addFlashAttribute("error", "Feature not yet implemented: " + e.getMessage());
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Failed to create policy: " + e.getMessage());
+        }
         return "redirect:/retention";
     }
 
     @GetMapping("/retention/edit/{id}")
     public String editRetentionPolicy(@PathVariable Long id, Model model) {
-        model.addAttribute("policy", retentionService.getPolicyById(id));
-        model.addAttribute("policies", retentionService.getAllPolicies());
+        model.addAttribute("pageTitle", "Edit Retention Policy");
+        model.addAttribute("policy", retentionService.getPolicies().stream()
+                .filter(p -> p.getId().equals(id))
+                .findFirst()
+                .orElse(null));
+        model.addAttribute("policies", retentionService.getPolicies());
         return "edit-retention";
     }
 
     @PostMapping("/retention/update/{id}")
     public String updateRetentionPolicy(@PathVariable Long id, @ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes) {
-        retentionService.updatePolicy(id, policy);
-        redirectAttributes.addFlashAttribute("success", "Retention policy updated successfully");
+        redirectAttributes.addFlashAttribute("error", "Update feature not yet implemented");
         return "redirect:/retention";
     }
 
     @GetMapping("/retention/delete/{id}")
     public String deleteRetentionPolicy(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        retentionService.deletePolicy(id);
-        redirectAttributes.addFlashAttribute("success", "Retention policy deleted successfully");
+        redirectAttributes.addFlashAttribute("error", "Delete feature not yet implemented");
         return "redirect:/retention";
     }
 
@@ -82,12 +100,28 @@ public class WebController {
             @RequestParam(required = false) String level,
             @RequestParam(required = false) String search,
             Model model) {
-        Pageable pageable = PageRequest.of(page, 20);
-        var logs = searchService.searchLogs(service, level, search, pageable);
+        model.addAttribute("pageTitle", "Log Management");
+        
+        LogSearchRequest searchRequest = LogSearchRequest.builder()
+                .serviceName(service)
+                .keyword(search)
+                .page(page)
+                .size(20)
+                .build();
+        
+        if (level != null && !level.isEmpty()) {
+            try {
+                searchRequest.setLevel(com.logstream.model.LogLevel.valueOf(level));
+            } catch (IllegalArgumentException e) {
+                // Invalid log level, ignore
+            }
+        }
+        
+        var logs = searchService.searchLogs(searchRequest);
         model.addAttribute("logs", logs);
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", logs.getTotalPages());
-        model.addAttribute("services", analyticsService.getErrorRateByService());
+        model.addAttribute("services", analyticsService.getErrorRatePerService());
         return "logs";
     }
 
@@ -96,13 +130,29 @@ public class WebController {
             @RequestParam(required = false) String service,
             @RequestParam(required = false) String level,
             Model model) {
-        var logs = searchService.searchLogs(service, level, null, Pageable.unpaged());
+        
+        LogSearchRequest searchRequest = LogSearchRequest.builder()
+                .serviceName(service)
+                .page(0)
+                .size(Integer.MAX_VALUE)
+                .build();
+        
+        if (level != null && !level.isEmpty()) {
+            try {
+                searchRequest.setLevel(com.logstream.model.LogLevel.valueOf(level));
+            } catch (IllegalArgumentException e) {
+                // Invalid log level, ignore
+            }
+        }
+        
+        var logs = searchService.searchLogs(searchRequest);
         model.addAttribute("logs", logs);
         return "csv-export";
     }
 
     @GetMapping("/logs/import")
-    public String importLogsForm() {
+    public String importLogsForm(Model model) {
+        model.addAttribute("pageTitle", "Import Logs");
         return "import-logs";
     }
 
@@ -117,9 +167,11 @@ public class WebController {
                     skipHeader = false;
                     continue;
                 }
-                count++;
+                if (!line.trim().isEmpty()) {
+                    count++;
+                }
             }
-            redirectAttributes.addFlashAttribute("success", "Imported " + count + " log entries successfully");
+            redirectAttributes.addFlashAttribute("success", "Parsed " + count + " log entries from CSV (import not yet implemented)");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Failed to import CSV: " + e.getMessage());
         }
@@ -131,10 +183,15 @@ public class WebController {
             @RequestParam(required = false) String service,
             @RequestParam(defaultValue = "hour") String granularity,
             Model model) {
-        model.addAttribute("errorRates", analyticsService.getErrorRateByService());
-        model.addAttribute("commonErrors", analyticsService.getCommonErrors(10));
-        model.addAttribute("logVolume", analyticsService.getLogVolumeByTime(granularity));
-        model.addAttribute("services", analyticsService.getErrorRateByService());
+        model.addAttribute("pageTitle", "Analytics");
+        
+        Instant endTime = Instant.now();
+        Instant startTime = endTime.minus(7, ChronoUnit.DAYS);
+        
+        model.addAttribute("errorRates", analyticsService.getErrorRatePerService());
+        model.addAttribute("commonErrors", analyticsService.getCommonErrors(service, 10, startTime, endTime));
+        model.addAttribute("logVolume", analyticsService.getLogVolumeTimeSeries(service, granularity, startTime, endTime));
+        model.addAttribute("services", analyticsService.getErrorRatePerService());
         model.addAttribute("granularity", granularity);
         return "analytics";
     }
