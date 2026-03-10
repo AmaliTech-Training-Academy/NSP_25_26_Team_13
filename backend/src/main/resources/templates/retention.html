@@ -4,10 +4,9 @@
     <title>Retention Policies - LogStream</title>
 </head>
 <body>
-    <div th:replace="layout :: mobile-header"></div>
-    <div th:replace="layout :: sidebar"></div>
-    <div th:replace="layout :: header"></div>
-    <div th:replace="layout :: alerts"></div>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
 
     <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
