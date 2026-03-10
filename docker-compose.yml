@@ -1,49 +1,27 @@
 # =============================================================
-# LogStream — Full-Stack Docker Compose
-#
-# ACCESS POINTS:
-#   Backend API     → http://localhost:8080
-#   Swagger UI      → http://localhost:8080/swagger-ui/index.html
-#   Metabase        → http://localhost:3000
-#   MinIO Console   → http://localhost:9001
-#   Dashboard       → http://localhost:8050 (disabled — see note below)
-#
-# STARTUP ORDER:
-#   1. postgres        — database server
-#   2. minio           — object storage for log archive files
-#   3. backend         — Spring Boot REST API
-#   4. data-engineering — ETL pipeline, runs every 15 minutes
-#   5. data-engine     — idle container for manual script execution
-#   6. metabase        — analytics dashboard
-#   7. dashboard       — Python Dash UI (disabled — dashboard.py missing)
-#
-# FIRST TIME SETUP:
-#   cp .env.example .env     ← fill in your values
-#   docker compose up --build -d
-#
-# RESET EVERYTHING (wipes all data volumes):
-#   docker compose down -v && docker compose up --build -d
-#
-# QUICK COMMANDS:
-#   Generate test data:
-#     docker compose run --rm data-engineering python scripts/data_generator.py --count 10000 --days 30
-#   Run retention policy manually:
-#     docker compose run --rm data-engineering python scripts/retention_policy.py
-#   Import a JSON log file:
-#     docker compose run --rm -e FILE_NAME=data/logs_YYYYMMDD_HHMMSS.json data-engineering python import_logs.py
-#   Run any script ad-hoc:
-#     docker compose exec data-engine python scripts/data_generator.py
+# LogStream — Standardized Full-Stack Configuration
 # =============================================================
 
-services:
+# 1. TEMPLATES (The "Don't Repeat Yourself" block)
+x-de-template: &de-template
+  build: ./data-engineering
+  env_file: .env
+  environment:
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_NAME: ${DB_NAME}
+    DB_USER: ${DB_USERNAME}
+    DB_PASSWORD: ${DB_PASSWORD}
+    PYTHONPATH: /app
+  volumes:
+    - de_data:/app/data
+    - de_archives:/app/archives
+  depends_on:
+    postgres:
+      condition: service_healthy
 
-  # ── PostgreSQL ──────────────────────────────────────────────
-  # Init scripts run in filename order on a FRESH volume only:
-  #   01_schema_ddl.sql — extensions, log_entries (partitioned), users, retention_policies
-  #   02_analytics.sql  — 13 pre-built Metabase views (vw_error_rate_24h, etc.)
-  #
-  # ensure_metabase_db.sh runs on EVERY startup — creates the metabase
-  # database automatically if it does not exist. No manual commands needed.
+services:
+  # ── Infrastructure ──────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: logstream-postgres
@@ -56,12 +34,10 @@ services:
       - "${DB_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # 01 — tables, indexes, extensions (runs once on fresh volume)
       - ./data-engineering/db/ddl/schema_ddl.sql:/docker-entrypoint-initdb.d/01_schema_ddl.sql:ro
-      # 02 — analytics views for Metabase (runs once on fresh volume)
       - ./data-engineering/db/dml/analytics.sql:/docker-entrypoint-initdb.d/02_analytics.sql:ro
-      # 03 — ensures metabase database exists on every startup
-      - ./devops/db/ensure_metabase_db.sh:/docker-entrypoint-initdb.d/03_ensure_metabase_db.sh:ro
+      - ./data-engineering/db/dml/init_metabase.sql:/docker-entrypoint-initdb.d/03_metabase.sql:ro
+      - ./devops/db/ensure_metabase_db.sh:/docker-entrypoint-initdb.d/04_ensure_metabase_db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
       interval: 10s
@@ -69,38 +45,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ── MinIO (Object Storage) ───────────────────────────────────
-  # Stores archived log files.
-  # API endpoint (port 9000) is used by the data-engineering service.
-  # Console UI (port 9001) is available for manual file management.
-  minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
-    container_name: logstream-minio
-    env_file: .env
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    command: server /data --console-address ":${MINIO_PORT_CONSOLE}"
-    volumes:
-      - minio_data:/data
-    ports:
-      - "${MINIO_PORT_API}:9000"
-      - "${MINIO_PORT_CONSOLE}:9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # ── Backend (Spring Boot) ────────────────────────────────────
-  # REST API for log ingestion, search, analytics, and retention.
-  # Hibernate auto-creates the users and retention_policies tables.
-  # data.sql seeds initial roles and retention config on startup.
-  #
-  # NOTE TO BACKEND TEAM: /api-docs is JWT-protected so Docker cannot
-  # healthcheck it. Please whitelist /api-docs or /actuator/health
-  # in SecurityConfig.java to restore the healthcheck.
+  # ── Application Services ────────────────────────────────────
   backend:
     build: ./backend
     container_name: logstream-backend
@@ -118,86 +63,44 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ── Data Engineering — ETL Pipeline ─────────────────────────
-  # Extracts, transforms, and loads log data every 15 minutes.
-  # Waits 10 seconds on startup for the backend to finish seeding.
-  # Depends on both postgres and minio being healthy before starting.
+  # ── Data Engineering (The Refactored Trio) ──────────────────
+
+  # 1. The Scheduled ETL Pipeline
   data-engineering:
-    build: ./data-engineering
+    <<: *de-template
     container_name: logstream-data-engineering
-    env_file: .env
-    environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      PYTHONPATH: /app
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    # Overriding the command to add the 15-minute loop
     command: >
       sh -c "
-        echo 'Waiting 10s for backend to seed initial data...' &&
-        sleep 10 &&
+        echo 'Waiting 10s for backend...' && sleep 10 &&
         while true; do
-          echo '── ETL run at '$(date -u +%Y-%m-%dT%H:%M:%SZ)' ──' &&
           python scripts/etl_pipeline.py;
           echo 'Next run in 15 minutes...';
           sleep 900;
         done
       "
-    volumes:
-      - de_data:/app/data
-      - de_archives:/app/archives
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
     restart: on-failure
 
-  # ── Data Engine — Manual Script Runner ──────────────────────
-  # Idle container that stays alive for ad-hoc script execution.
-  # Use this instead of spinning up a new container each time.
-  #
-  # Examples:
-  #   docker compose exec data-engine python scripts/data_generator.py --count 5000
-  #   docker compose exec data-engine python scripts/retention_policy.py
+  # 2. The Interactive Shell (for manual runs)
   data-engine:
-    build: ./data-engineering
+    <<: *de-template
     container_name: logstream-data-engine
-    env_file: .env
-    environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      PYTHONPATH: /app
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
     volumes:
+      - de_data:/app/data
       - ./data-engineering/scripts:/app/scripts
       - ./data-engineering/tests:/app/tests
-      - de_data:/app/data
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
     command: ["sleep", "infinity"]
     restart: unless-stopped
 
-  # ── Metabase — Analytics Dashboard ──────────────────────────
-  # Business intelligence UI for querying and visualising log data.
-  # Uses a SEPARATE metabase database (created automatically by
-  # devops/db/ensure_metabase_db.sh on every postgres startup).
-  #
-  # On first visit (http://localhost:3000) follow the setup wizard:
-  #   Host: postgres | Port: 5432 | Database: logstream
-  #   Username: DB_USERNAME value | Password: DB_PASSWORD value
+  # 3. The Visualization Dashboard (Easy to enable now)
+  # dashboard:
+  #   <<: *de-template
+  #   container_name: logstream-dashboard
+  #   ports:
+  #     - "8050:8050"
+  #   command: python scripts/dashboard.py
+
+  # ── Analytics ───────────────────────────────────────────────
   metabase:
     image: metabase/metabase:v0.59.x
     container_name: logstream-metabase
@@ -205,7 +108,7 @@ services:
     environment:
       MB_DB_TYPE: postgres
       MB_DB_HOST: postgres
-      MB_DB_PORT: ${DB_PORT}
+      MB_DB_PORT: 5432
       MB_DB_DBNAME: metabase
       MB_DB_USER: ${DB_USERNAME}
       MB_DB_PASS: ${DB_PASSWORD}
@@ -216,47 +119,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ── Dashboard — Python Dash UI ───────────────────────────────
-  # Custom analytics dashboard built with Plotly Dash.
-  # DISABLED: scripts/dashboard.py has not been created yet.
-  # TO ENABLE: Data engineering team must create scripts/dashboard.py,
-  # then uncomment the entire block below and run:
-  #   docker compose up -d dashboard
-  #
-  # dashboard:
-  #   build: ./data-engineering
-  #   container_name: logstream-dashboard
-  #   env_file: .env
-  #   environment:
-  #     DB_HOST: postgres
-  #     DB_PORT: ${DB_PORT}
-  #     DB_NAME: ${DB_NAME}
-  #     DB_USER: ${DB_USERNAME}
-  #     DB_PASSWORD: ${DB_PASSWORD}
-  #     PYTHONPATH: /app
-  #   command: python scripts/dashboard.py
-  #   ports:
-  #     - "8050:8050"
-  #   volumes:
-  #     - ./data-engineering/scripts:/app/scripts
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8050"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
-  #   restart: unless-stopped
-
-# =============================================================
-# Named Volumes
-#   pgdata       — PostgreSQL data (log_entries, users, retention_policies)
-#   minio_data   — MinIO object storage (archived log files)
-#   de_data      — data-engineering working data directory
-#   de_archives  — data-engineering archive output directory
-# =============================================================
 volumes:
   pgdata:
   minio_data:
