@@ -75,6 +75,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     ports:
       - "${BACKEND_PORT}:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-logstream}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-logstream}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-logstream123}
+      JWT_SECRET: ${JWT_SECRET:-logstream-secret-key-amalitech-2024-secure}
+
     depends_on:
       postgres:
         condition: service_healthy
