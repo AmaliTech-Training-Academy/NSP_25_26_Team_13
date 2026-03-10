@@ -65,7 +65,7 @@
     </div>
 
     <!-- Sidebar -->
-    <div th:fragment="sidebar" id="sidebar" class="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white flex-col z-50">
+    <div th:fragment="sidebar" id="sidebar" class="flex md:flex fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white flex-col z-50 transition-all duration-300">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -79,19 +79,19 @@
         </div>
         <nav class="flex-1 p-4 space-y-1">
             <a href="/" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" 
-               th:classappend="${#httpServletRequest.requestURI == '/' ? 'active' : ''}">
+               data-page="/">
                 <i class="fas fa-home w-6"></i>Dashboard
             </a>
             <a href="/logs" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               th:classappend="${#httpServletRequest.requestURI == '/logs' ? 'active' : ''}">
+               data-page="/logs">
                 <i class="fas fa-list w-6"></i>Logs
             </a>
             <a href="/analytics" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               th:classappend="${#httpServletRequest.requestURI == '/analytics' ? 'active' : ''}">
+               data-page="/analytics">
                 <i class="fas fa-chart-bar w-6"></i>Analytics
             </a>
             <a href="/retention" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               th:classappend="${#httpServletRequest.requestURI == '/retention' ? 'active' : ''}">
+               data-page="/retention">
                 <i class="fas fa-cog w-6"></i>Retention Policies
             </a>
         </nav>
@@ -187,6 +187,15 @@
                 sidebar.classList.remove('w-64');
                 sidebar.classList.add('w-16');
             }
+
+            // Set active link
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                const page = link.getAttribute('data-page');
+                if (page && (currentPath === page || (page === '/' && currentPath === ''))) {
+                    link.classList.add('active');
+                }
+            });
 
             const updateTime = function() {
                 const now = new Date();
