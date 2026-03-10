@@ -80,16 +80,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: data-engineering/requirements.txt
-      
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('data-engineering/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
       
       - name: Install linting dependencies
         run: |
@@ -110,10 +100,6 @@ jobs:
         working-directory: data-engineering
         run: isort --check-only . || echo "isort import check completed"
         continue-on-error: true
-      
-      - name: Cleanup
-        if: always()
-        run: rm -rf ~/.cache/pip
 
   # ─────────────────────────────────────────────────────────
   # JOB 3: Backend — Build & Test
@@ -227,16 +213,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: data-engineering/requirements.txt
-
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('data-engineering/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
 
       - name: Install dependencies
         working-directory: data-engineering
@@ -275,10 +251,6 @@ jobs:
           path: data-engineering/coverage.xml
           retention-days: 7
         continue-on-error: true
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf ~/.cache/pip
 
   # ─────────────────────────────────────────────────────────
   # JOB 5: Docker — Build All Images
