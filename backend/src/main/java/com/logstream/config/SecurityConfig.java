@@ -39,6 +39,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/analytics/**").permitAll()
                         .requestMatchers("/api/retention/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/", "/dashboard", "/logs", "/analytics").authenticated()
+                        .requestMatchers("/retention/**", "/logs/import/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(sm -> sm

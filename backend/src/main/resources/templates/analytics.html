@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="layout :: head">
+    <title>Analytics - LogStream</title>
+</head>
+<body>
+    <div th:replace="layout :: mobile-header"></div>
+    <div th:replace="layout :: sidebar"></div>
+    <div th:replace="layout :: header"></div>
+    <div th:replace="layout :: alerts"></div>
+
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <!-- Granularity Selection -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <form method="get" class="flex items-end space-x-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Granularity</label>
+                    <select name="granularity" class="mt-1 px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="hour" th:selected="${granularity == 'hour'}">Hourly</option>
+                        <option value="day" th:selected="${granularity == 'day'}">Daily</option>
+                    </select>
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                    <i class="fas fa-sync-alt mr-2"></i>Update
+                </button>
+            </form>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Error Rate Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Error Rate by Service</h2>
+                <canvas id="errorRateChart"></canvas>
+            </div>
+
+            <!-- Log Volume Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Log Volume Over Time</h2>
+                <canvas id="volumeChart"></canvas>
+            </div>
+
+            <!-- Common Errors -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Top Error Messages</h2>
+                <div class="space-y-3">
+                    <div th:each="error : ${commonErrors}" class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span class="text-sm text-gray-700 truncate" th:text="${error.message}"></span>
+                        <span class="text-sm font-medium text-gray-900" th:text="${error.count}"></span>
+                    </div>
+                    <div th:if="${#lists.isEmpty(commonErrors)}" class="text-center text-gray-500 py-8">
+                        No errors found
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Statistics -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Service Statistics</h2>
+                <div class="space-y-3">
+                    <div th:each="service : ${errorRates}" class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span class="text-sm font-medium text-gray-900" th:text="${service.service}"></span>
+                        <span th:classappend="${service.errorRate > 5 ? 'text-red-600' : service.errorRate > 1 ? 'text-yellow-600' : 'text-green-600'}"
+                              class="text-sm font-medium" th:text="${service.errorRate} + '%'"></span>
+                    </div>
+                    <div th:if="${#lists.isEmpty(errorRates)}" class="text-center text-gray-500 py-8">
+                        No services found
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script th:inline="javascript">
+        // Error Rate Chart
+        const errorRateCtx = document.getElementById('errorRateChart').getContext('2d');
+        const errorRates = [[${errorRates}]];
+        new Chart(errorRateCtx, {
+            type: 'bar',
+            data: {
+                labels: errorRates.map(e => e.service),
+                datasets: [{
+                    label: 'Error Rate (%)',
+                    data: errorRates.map(e => e.errorRate),
+                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+
+        // Log Volume Chart
+        const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+        const logVolume = [[${logVolume}]];
+        new Chart(volumeCtx, {
+            type: 'line',
+            data: {
+                labels: logVolume.map(v => v.timestamp),
+                datasets: [{
+                    label: 'Log Volume',
+                    data: logVolume.map(v => v.count),
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
