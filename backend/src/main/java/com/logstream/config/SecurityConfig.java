@@ -33,11 +33,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(customAccessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/logs/**").permitAll()
+                        .requestMatchers("/api/logs", "/api/logs/batch").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/health").permitAll()
-                        .requestMatchers("/api/analytics/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
                         .requestMatchers("/", "/dashboard", "/logs", "/analytics").authenticated()
