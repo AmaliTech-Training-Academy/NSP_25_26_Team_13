@@ -1,0 +1,10 @@
+# Run hourly aggregation every hour at :05
+5 * * * * python /app/scripts/etl_pipeline.py --mode hourly >> /app/logs/hourly_agg.log 2>&1
+
+# Run daily aggregation every day at 1 AM
+0 1 * * * python /app/scripts/etl_pipeline.py --mode daily >> /app/logs/daily_agg.log 2>&1
+
+# Run standard health check every 15 minutes
+*/15 * * * * python /app/scripts/etl_pipeline.py --mode standard >> /app/logs/standard_run.log 2>&1
+
+# Empty line at end of file
