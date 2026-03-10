@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogStream - Service Health Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">LogStream</h1>
+                        <p class="text-gray-600 mt-1">Service Health Dashboard</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-600">Last Updated: <span id="lastUpdated">--:--:--</span></p>
+                        <button id="refreshBtn" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Total Services</p>
+                            <p class="text-3xl font-bold text-gray-900 mt-2" id="totalServices">0</p>
+                        </div>
+                        <i class="fas fa-server text-blue-600 text-3xl opacity-20"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Healthy</p>
+                            <p class="text-3xl font-bold text-green-600 mt-2" id="healthyCount">0</p>
+                        </div>
+                        <i class="fas fa-check-circle text-green-600 text-3xl opacity-20"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Degraded</p>
+                            <p class="text-3xl font-bold text-yellow-600 mt-2" id="degradedCount">0</p>
+                        </div>
+                        <i class="fas fa-exclamation-circle text-yellow-600 text-3xl opacity-20"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Unhealthy</p>
+                            <p class="text-3xl font-bold text-red-600 mt-2" id="unhealthyCount">0</p>
+                        </div>
+                        <i class="fas fa-times-circle text-red-600 text-3xl opacity-20"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Table -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-xl font-bold text-gray-900">Service Health Status</h2>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Service Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Error Rate</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Last Log</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="healthTable" class="divide-y divide-gray-200">
+                            <tr class="text-center py-8">
+                                <td colspan="5" class="px-6 py-8 text-gray-500">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>Loading...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorAlert" class="hidden mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-600 mr-3"></i>
+                    <div>
+                        <h3 class="font-semibold text-red-900">Error Loading Dashboard</h3>
+                        <p id="errorMessage" class="text-red-700 text-sm mt-1"></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>
