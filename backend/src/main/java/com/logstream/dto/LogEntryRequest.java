@@ -1,6 +1,5 @@
 package com.logstream.dto;
 
-import com.logstream.model.LogLevel;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -22,7 +21,7 @@ public class LogEntryRequest {
     private String serviceName;
 
     @NotNull(message = "Log level is required")
-    private LogLevel level;
+    private String level;
 
     @NotBlank(message = "Message is required")
     @Pattern(regexp = "^.{1,2000}$", message = "Message must be between 1 and 2000 characters")
@@ -36,4 +35,6 @@ public class LogEntryRequest {
 
     @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Trace ID can only contain letters, numbers, hyphens, and underscores")
     private String traceId;
+
+    private String createdAt;
 }

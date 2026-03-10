@@ -64,7 +64,7 @@ class IngestionServiceTests {
     void getLogs_repositoryReturnsEntries_mappedToResponseList() {
         when(logEntryRepository.findAll()).thenReturn(List.of(savedEntry));
 
-        List<LogEntryResponse> result = service.getLogs();
+        List<LogEntryResponse> result = service.getLogs(0, 20).getContent();
 
         assertThat(result).hasSize(1);
         LogEntryResponse response = result.getFirst();
@@ -81,7 +81,7 @@ class IngestionServiceTests {
     void getLogs_repositoryReturnsEmpty_returnsEmptyList() {
         when(logEntryRepository.findAll()).thenReturn(List.of());
 
-        assertThat(service.getLogs()).isEmpty();
+        assertThat(service.getLogs(0, 20).getContent()).isEmpty();
     }
 
     @Test
@@ -90,7 +90,7 @@ class IngestionServiceTests {
                 .level(LogLevel.ERROR).message("Boom").timestamp(Instant.now()).build();
         when(logEntryRepository.findAll()).thenReturn(List.of(savedEntry, second));
 
-        assertThat(service.getLogs()).hasSize(2);
+        assertThat(service.getLogs(0, 20).getContent()).hasSize(2);
     }
 
     @Test
