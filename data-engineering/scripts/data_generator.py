@@ -19,13 +19,19 @@ Key design decisions
   for logs dropped by outage windows, so the output count is reliable.
 """
 
+
+# Resolved relative to this file so it works regardless of working directory.
 import argparse
+from pathlib import Path
+LOG_DIR = Path(__file__).resolve().parent.parent / "data"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 import json
 import random
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta,timezone
-from pathlib import Path
+from scripts.utils.logger import get_logger 
+
 
 from config.config import (
     ERROR_SPIKES,
@@ -37,15 +43,38 @@ from config.config import (
     _HOUR_WEIGHTS,
 )
 
-# ── Output directory ──────────────────────────────────────────────────────────
-# Resolved relative to this file so it works regardless of working directory.
-LOG_DIR = Path(__file__).resolve().parent.parent / "data"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+logger = get_logger("data_generator")
+
+#Instead of using print, I will be using loggers 
 
 
 
 
-# WINDOW PRE-BUILDERS
+
+# Built once at module load. Each service gets level weights that honour its
+# configured error_rate, so payment-service (15%) differs from api-gateway (2%)
+# at baseline — not just during spike windows.
+def _build_baseline_weights() -> dict:
+    error_idx = LEVELS.index("ERROR")
+    base_sum  = sum(w for i, w in enumerate(LEVEL_WEIGHTS) if i != error_idx)
+    result    = {}
+    for svc, cfg in SERVICES.items():
+        error_rate = cfg.get("error_rate", LEVEL_WEIGHTS[error_idx])
+        remaining  = 1.0 - error_rate
+        weights    = []
+        for i, w in enumerate(LEVEL_WEIGHTS):
+            if i == error_idx:
+                weights.append(error_rate)
+            else:
+                weights.append(remaining * (w / base_sum))
+        result[svc] = weights
+    return result
+
+_BASELINE_WEIGHTS: dict = _build_baseline_weights()
+
+
+
+
 # These run once at the start of generate_logs() and return plain dicts.
 # Nothing is mutated after this point.
 def _build_spike_windows(start: datetime, end: datetime) -> dict:
@@ -189,7 +218,7 @@ def generate_log(
     if _in_window(service_name, ts, spike_windows):
         weights = _spike_weights(service_name)
     else:
-        weights = LEVEL_WEIGHTS
+        weights = _BASELINE_WEIGHTS.get(service_name,LEVEL_WEIGHTS)
 
     level = random.choices(LEVELS, weights=weights)[0]
 
