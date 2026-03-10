@@ -26,6 +26,16 @@
             background: linear-gradient(90deg, var(--primary) 0%, transparent 100%);
             border-left: 3px solid #60a5fa;
         }
+        .sidebar-collapsed .sidebar-link span,
+        .sidebar-collapsed .nav-text {
+            display: none;
+        }
+        .w-16 {
+            width: 4rem;
+        }
+        .w-64 {
+            width: 16rem;
+        }
         .card-hover {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
@@ -134,10 +144,19 @@
     </div>
 
     <script th:inline="javascript">
-        // Mobile menu toggle
+        const jwtToken = localStorage.getItem('jwt_token');
+        
+        if (!jwtToken && !window.location.pathname.startsWith('/login') && 
+            !window.location.pathname.startsWith('/logout') && 
+            !window.location.pathname.startsWith('/404') &&
+            !window.location.pathname.startsWith('/access-denied')) {
+            window.location.href = '/login';
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
             const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
             
             if (mobileMenuBtn && sidebar) {
                 mobileMenuBtn.addEventListener('click', function() {
@@ -148,7 +167,27 @@
                 });
             }
 
-            // Update timestamp
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    const isCollapsed = sidebar.classList.contains('w-16');
+                    if (isCollapsed) {
+                        sidebar.classList.remove('w-16');
+                        sidebar.classList.add('w-64');
+                        localStorage.setItem('sidebarCollapsed', 'false');
+                    } else {
+                        sidebar.classList.remove('w-64');
+                        sidebar.classList.add('w-16');
+                        localStorage.setItem('sidebarCollapsed', 'true');
+                    }
+                });
+            }
+
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true' && sidebar) {
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-16');
+            }
+
             const updateTime = function() {
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString();
