@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:fragment="head">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} ?: 'LogStream'">LogStream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body class="bg-gray-50">
+    <div th:fragment="sidebar" class="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-gray-900 text-white flex-col">
+        <div class="p-6 border-b border-gray-700">
+            <h1 class="text-2xl font-bold">LogStream</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="/" class="block px-4 py-2 rounded hover:bg-gray-800 transition">
+                <i class="fas fa-home mr-2"></i>Dashboard
+            </a>
+            <a href="/logs" class="block px-4 py-2 rounded hover:bg-gray-800 transition">
+                <i class="fas fa-list mr-2"></i>Logs
+            </a>
+            <a href="/analytics" class="block px-4 py-2 rounded hover:bg-gray-800 transition">
+                <i class="fas fa-chart-bar mr-2"></i>Analytics
+            </a>
+            <a href="/retention" class="block px-4 py-2 rounded hover:bg-gray-800 transition">
+                <i class="fas fa-cog mr-2"></i>Retention Policies
+            </a>
+        </nav>
+        <div class="p-4 border-t border-gray-700">
+            <a href="/logout" class="block px-4 py-2 rounded hover:bg-gray-800 transition">
+                <i class="fas fa-sign-out-alt mr-2"></i>Logout
+            </a>
+        </div>
+    </div>
+
+    <div th:fragment="header" class="md:ml-64">
+        <header class="bg-white shadow">
+            <div class="px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900" th:text="${pageTitle} ?: 'Dashboard'">Dashboard</h1>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600" id="lastUpdated">--:--:--</span>
+                    <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
+    </div>
+
+    <div th:fragment="alerts">
+        <div th:if="${success}" class="md:ml-64 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded m-4">
+            <i class="fas fa-check-circle mr-2"></i><span th:text="${success}"></span>
+        </div>
+        <div th:if="${error}" class="md:ml-64 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded m-4">
+            <i class="fas fa-exclamation-circle mr-2"></i><span th:text="${error}"></span>
+        </div>
+    </div>
+</body>
+</html>
