@@ -28,32 +28,20 @@ async function fetchHealthData() {
     }
 
     try {
-<<<<<<< Updated upstream
-        const response = await fetch(API_URL);
-        
-        if (response.status === 401 || response.status === 403) {
-            window.location.href = '/login';
-=======
         const response = await fetch(API_URL, {
             headers: getAuthHeaders()
         });
         
         if (response.status === 401) {
             redirectToLogin();
->>>>>>> Stashed changes
             return;
         }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         const data = await response.json();
-<<<<<<< Updated upstream
-        renderDashboard(data.data || []);
-=======
         renderDashboard(data.data);
->>>>>>> Stashed changes
         hideError();
     } catch (error) {
         console.error('Error fetching health data:', error);
