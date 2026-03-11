@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -158,32 +157,6 @@ class FileProcessingServiceTest {
         assertThatThrownBy(() -> fileProcessingService.processJSONFile(new byte[0]))
                 .isInstanceOf(FileProcessingException.class)
                 .hasMessageContaining("stream error");
-    }
-
-    @Test
-    void processJSONFile_nullMetadata_setsNullOnEntity() throws Exception {
-        LogEntryDTO dto = mockLogEntryDTO();
-        dto.setMetadata(null);
-
-        byte[] fileBytes = mockJsonFile(List.of(dto));
-        fileProcessingService.processJSONFile(fileBytes);
-
-        ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
-        verify(batchPersistenceService).saveBatch(captor.capture());
-        assertThat(captor.getValue().get(0).getMetadata()).isNull();
-    }
-
-    @Test
-    void processJSONFile_withMetadata_serializesMetadataToJson() throws Exception {
-        LogEntryDTO dto = mockLogEntryDTO();
-        dto.setMetadata(Map.of("key", "value"));
-
-        byte[] fileBytes = mockJsonFile(List.of(dto));
-        fileProcessingService.processJSONFile(fileBytes);
-
-        ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
-        verify(batchPersistenceService).saveBatch(captor.capture());
-        assertThat(captor.getValue().get(0).getMetadata()).contains("key");
     }
 
     @Test

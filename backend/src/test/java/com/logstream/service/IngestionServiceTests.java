@@ -1,6 +1,5 @@
 package com.logstream.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.logstream.dto.BatchLogEntryResponse;
 import com.logstream.dto.BatchLogRequest;
@@ -23,7 +22,6 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
@@ -54,7 +52,6 @@ class IngestionServiceTests {
                 .message("User logged in")
                 .source("com.example.Auth")
                 .traceId("trace-123")
-                .metadata("{\"env\":\"prod\"}")
                 .timestamp(Instant.now())
                 .createdAt(Instant.now())
                 .build();
@@ -74,7 +71,6 @@ class IngestionServiceTests {
         assertThat(response.getMessage()).isEqualTo(savedEntry.getMessage());
         assertThat(response.getSource()).isEqualTo(savedEntry.getSource());
         assertThat(response.getTraceId()).isEqualTo(savedEntry.getTraceId());
-        assertThat(response.getMetadata()).isEqualTo(savedEntry.getMetadata());
     }
 
     @Test
@@ -96,7 +92,7 @@ class IngestionServiceTests {
     @Test
     void ingestLog_validRequest_savedAndResponseReturned() {
         LogEntryRequest request = buildRequest("auth-service", "INFO", "User logged in",
-                "com.example.Auth", "trace-123", null);
+                "com.example.Auth", "trace-123");
         when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
         LogEntryResponse result = service.ingestLog(request);
@@ -109,7 +105,7 @@ class IngestionServiceTests {
 
     @Test
     void ingestLog_lowercaseLevel_throwsIllegalArgumentException() {
-        LogEntryRequest request = buildRequest("svc", "warn", "msg", null, null, null);
+        LogEntryRequest request = buildRequest("svc", "warn", "msg", null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -117,56 +113,15 @@ class IngestionServiceTests {
 
     @Test
     void ingestLog_mixedCaseLevel_throwsIllegalArgumentException() {
-        LogEntryRequest request = buildRequest("svc", "Debug", "msg", null, null, null);
+        LogEntryRequest request = buildRequest("svc", "Debug", "msg", null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void ingestLog_withMetadata_serializedAndStoredOnEntity() throws JsonProcessingException {
-        Map<String, String> metadata = Map.of("env", "prod");
-        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, metadata);
-        when(objectMapper.writeValueAsString(metadata)).thenReturn("{\"env\":\"prod\"}");
-        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
-
-        service.ingestLog(request);
-
-        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
-        verify(logEntryRepository).save(captor.capture());
-        assertThat(captor.getValue().getMetadata()).isEqualTo("{\"env\":\"prod\"}");
-    }
-
-    @Test
-    void ingestLog_nullMetadata_entityMetadataIsNull() {
-        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, null);
-        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
-
-        service.ingestLog(request);
-
-        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
-        verify(logEntryRepository).save(captor.capture());
-        assertThat(captor.getValue().getMetadata()).isNull();
-    }
-
-    @Test
-    void ingestLog_metadataSerializationFails_fallsBackToEmptyJson() throws JsonProcessingException {
-        Map<String, String> metadata = Map.of("k", "v");
-        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, metadata);
-        when(objectMapper.writeValueAsString(metadata)).thenThrow(new JsonProcessingException("boom") {
-        });
-        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
-
-        service.ingestLog(request);
-
-        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
-        verify(logEntryRepository).save(captor.capture());
-        assertThat(captor.getValue().getMetadata()).isEqualTo("{}");
-    }
-
-    @Test
     void ingestLog_entityTimestampIsSetToNowApproximately() {
-        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null, null);
+        LogEntryRequest request = buildRequest("svc", "INFO", "msg", null, null);
         Instant before = Instant.now();
         when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
@@ -183,8 +138,9 @@ class IngestionServiceTests {
     @Test
     void ingestBatch_validRequests_allSavedAndCountReturned() {
         BatchLogRequest batchRequest = new BatchLogRequest(List.of(
-                buildRequest("svc1", "INFO", "msg1", null, null, null),
-                buildRequest("svc2", "ERROR", "msg2", null, null, null)));
+                buildRequest("svc1", "INFO", "msg1", null, null),
+                buildRequest("svc2", "ERROR", "msg2", null, null)
+        ));
 
         BatchLogEntryResponse result = service.ingestBatch(batchRequest);
 
@@ -209,7 +165,8 @@ class IngestionServiceTests {
     @Test
     void ingestBatch_singleEntry_countIsOne() {
         BatchLogRequest batchRequest = new BatchLogRequest(List.of(
-                buildRequest("svc", "DEBUG", "msg", null, null, null)));
+                buildRequest("svc", "DEBUG", "msg", null, null)
+        ));
 
         BatchLogEntryResponse result = service.ingestBatch(batchRequest);
 
@@ -218,7 +175,7 @@ class IngestionServiceTests {
 
     @Test
     void ingestLog_nullLevel_throwsBadRequestException() {
-        LogEntryRequest request = buildRequest("svc", null, "msg", null, null, null);
+        LogEntryRequest request = buildRequest("svc", null, "msg", null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
                 .isInstanceOf(NullPointerException.class)
@@ -227,7 +184,7 @@ class IngestionServiceTests {
 
     @Test
     void ingestLog_blankLevel_throwsBadRequestException() {
-        LogEntryRequest request = buildRequest("svc", "   ", "msg", null, null, null);
+        LogEntryRequest request = buildRequest("svc", "   ", "msg", null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -236,7 +193,7 @@ class IngestionServiceTests {
 
     @Test
     void ingestLog_unknownLevel_throwsBadRequestException() {
-        LogEntryRequest request = buildRequest("svc", "VERBOSE", "msg", null, null, null);
+        LogEntryRequest request = buildRequest("svc", "VERBOSE", "msg", null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -246,7 +203,7 @@ class IngestionServiceTests {
     @ParameterizedTest
     @ValueSource(strings = { "DEBUG", "INFO", "WARN", "ERROR" })
     void ingestLog_allValidLevels_noExceptionThrown(String level) {
-        LogEntryRequest request = buildRequest("svc", level, "msg", null, null, null);
+        LogEntryRequest request = buildRequest("svc", level, "msg", null, null);
         when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
         assertThatNoException().isThrownBy(() -> service.ingestLog(request));
@@ -255,8 +212,9 @@ class IngestionServiceTests {
     @Test
     void ingestBatch_oneEntryHasInvalidLevel_throwsBadRequestExceptionAndNothingSaved() {
         BatchLogRequest batchRequest = new BatchLogRequest(List.of(
-                buildRequest("svc1", "INFO", "msg1", null, null, null),
-                buildRequest("svc2", "INVALID", "msg2", null, null, null)));
+                buildRequest("svc1", "INFO", "msg1", null, null),
+                buildRequest("svc2", "INVALID", "msg2", null, null)
+        ));
 
         assertThatThrownBy(() -> service.ingestBatch(batchRequest))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -265,15 +223,14 @@ class IngestionServiceTests {
     }
 
     private LogEntryRequest buildRequest(String serviceName, String level, String message,
-            String source, String traceId,
-            Map<String, String> metadata) {
+                                         String source, String traceId) {
         return LogEntryRequest.builder()
                 .serviceName(serviceName)
                 .level(level)
                 .message(message)
                 .source(source)
                 .traceId(traceId)
-                .metadata(metadata)
+                .metadata(null)
                 .build();
     }
 }

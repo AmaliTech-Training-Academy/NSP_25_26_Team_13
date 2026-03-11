@@ -1,6 +1,5 @@
 package com.logstream.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -96,32 +95,16 @@ public class FileProcessingService {
     }
 
     private LogEntry mapToEntity(LogEntryDTO request) {
-        String metadataJson = null;
-        if (request.getMetadata() != null && !request.getMetadata().isEmpty()) {
-            try {
-                metadataJson = METADATA_WRITER.writeValueAsString(request.getMetadata());
-            } catch (JsonProcessingException e) {
-                throw new FileProcessingException("Failed to serialize metadata to JSON");
-            }
-        }
-
         return LogEntry.builder()
                 .serviceName(request.getServiceName())
                 .level(LogLevel.valueOf(request.getLevel().toUpperCase()))
                 .message(request.getMessage())
                 .source(request.getSource())
                 .traceId(request.getTraceId())
-                .metadata(metadataJson)
                 .timestamp(Instant.now())
                 .createdAt(request.getCreatedAt() != null
                         ? LocalDateTime.parse(request.getCreatedAt()).toInstant(ZoneOffset.UTC)
                         : null)
                 .build();
-    }
-
-    private void saveBatch(List<LogEntry> batch) {
-        logEntryRepository.saveAll(batch);
-        entityManager.flush();
-        entityManager.clear();
     }
 }

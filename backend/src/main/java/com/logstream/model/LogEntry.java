@@ -41,9 +41,6 @@ public class LogEntry {
     @Column(nullable = false, length = 2000, columnDefinition = "TEXT")
     private String message;
 
-    @Column(columnDefinition = "TEXT")
-    private String metadata;
-
     private String source;
     private String traceId;
 
