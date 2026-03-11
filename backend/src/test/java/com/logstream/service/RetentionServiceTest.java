@@ -105,7 +105,7 @@ class RetentionServiceTest {
 
         retentionService.applyRetention();
 
-        verify(logEntryRepository).deleteByServiceNameOlderThan(eq("auth-service"), any(Instant.class));
+        verify(logEntryRepository).deleteByServiceNameAndCreatedAtBefore(eq("auth-service"), any(Instant.class));
     }
 
     @Test
@@ -116,6 +116,6 @@ class RetentionServiceTest {
         retentionService.applyRetention();
 
         // should use default 30-day cutoff for service with no custom policy
-        verify(logEntryRepository).deleteByServiceNameOlderThan(eq("payment-service"), any(Instant.class));
+        verify(logEntryRepository).deleteByServiceNameAndCreatedAtBefore(eq("payment-service"), any(Instant.class));
     }
 }

@@ -7,8 +7,12 @@ import com.logstream.dto.BatchLogRequest;
 import com.logstream.dto.LogEntryRequest;
 import com.logstream.dto.LogEntryResponse;
 import com.logstream.model.LogEntry;
+import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -21,6 +25,11 @@ public class IngestionService {
 
     private final LogEntryRepository logEntryRepository;
     private final ObjectMapper objectMapper;
+
+    public Page<LogEntryResponse> getLogs(int page, int size) {
+        Pageable pageable = PageRequest.of(page, Math.min(size, 50));
+        return logEntryRepository.findAll(pageable).map(this::mapToResponse);
+    }
 
     public LogEntryResponse ingestLog(LogEntryRequest request) {
         LogEntry entry = mapToEntity(request);
@@ -49,7 +58,7 @@ public class IngestionService {
         return LogEntry.builder()
                 .serviceName(request.getServiceName())
                 .timestamp(Instant.now())
-                .level(request.getLevel())
+                .level(LogLevel.valueOf(request.getLevel()))
                 .message(request.getMessage())
                 .metadata(serializeMetadata(request.getMetadata()))
                 .source(request.getSource())

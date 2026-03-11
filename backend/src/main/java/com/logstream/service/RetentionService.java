@@ -5,7 +5,6 @@ import com.logstream.repository.LogEntryRepository;
 import com.logstream.repository.RetentionPolicyRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -51,7 +50,6 @@ public class RetentionService {
     }
 
     @Transactional
-    @Scheduled(cron = "0 0 2 * * *") // runs daily at 2am
     public void applyRetention() {
         Instant now = Instant.now();
         List<RetentionPolicy> policies = retentionPolicyRepository.findAll();
@@ -66,7 +64,7 @@ public class RetentionService {
     private void applyCustomPolicies(List<RetentionPolicy> policies, Instant now) {
         for (RetentionPolicy policy : policies) {
             Instant cutoff = now.minus(policy.getRetentionDays(), ChronoUnit.DAYS);
-            logEntryRepository.deleteByServiceNameOlderThan(policy.getServiceName(), cutoff);
+            logEntryRepository.deleteByServiceNameAndCreatedAtBefore(policy.getServiceName(), cutoff);
         }
     }
 
@@ -74,7 +72,7 @@ public class RetentionService {
         Instant defaultCutoff = now.minus(DEFAULT_RETENTION_DAYS, ChronoUnit.DAYS);
         for (String service : logEntryRepository.findDistinctServiceNames()) {
             if (!servicesWithPolicy.contains(service)) {
-                logEntryRepository.deleteByServiceNameOlderThan(service, defaultCutoff);
+                logEntryRepository.deleteByServiceNameAndCreatedAtBefore(service, defaultCutoff);
             }
         }
     }

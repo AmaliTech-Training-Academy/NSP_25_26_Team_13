@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
         log.warn("Bad request: {}", ex.getMessage());
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.BAD_REQUEST.value()).build());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -70,6 +70,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponse.builder()
                         .message("You do not have permission to access this resource.")
+                        .status(HttpStatus.FORBIDDEN.value())
                         .build());
     }
 
@@ -77,7 +78,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
         log.warn("Resource not found: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.NOT_FOUND.value()).build());
+    }
+
+    @ExceptionHandler(FileProcessingException.class)
+    public ResponseEntity<ErrorResponse> handleFileProcessingException(FileProcessingException ex) {
+        log.warn("File processing error: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.INTERNAL_SERVER_ERROR.value()).build());
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFileException(InvalidFileException ex) {
+        log.warn("Invalid file: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.BAD_REQUEST.value()).build());
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
