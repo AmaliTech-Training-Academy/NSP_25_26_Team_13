@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -56,10 +57,12 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
                                      Pageable pageable);
 
     @Modifying
-    @Query("DELETE FROM LogEntry l WHERE l.serviceName = :serviceName AND l.timestamp < :cutoff")
-    void deleteByServiceNameOlderThan(@Param("serviceName") String serviceName, @Param("cutoff") Instant cutoff);
+    @Transactional
+    @Query("DELETE FROM LogEntry l WHERE l.serviceName = :serviceName AND l.createdAt < :cutoff")
+    int deleteByServiceNameAndCreatedAtBefore(@Param("serviceName") String serviceName, @Param("cutoff") Instant cutoff);
 
     @Modifying
-    @Query("DELETE FROM LogEntry l WHERE l.timestamp < :cutoff")
-    void deleteOlderThan(@Param("cutoff") Instant cutoff);
+    @Transactional
+    @Query("DELETE FROM LogEntry l WHERE l.createdAt < :cutoff")
+    int deleteByCreatedAtBefore(@Param("cutoff") Instant cutoff);
 }
