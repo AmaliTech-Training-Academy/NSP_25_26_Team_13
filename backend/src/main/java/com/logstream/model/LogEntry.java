@@ -13,7 +13,7 @@ import java.util.UUID;
 @Table(name = "log_entries", indexes = {
         @Index(name = "idx_service_name", columnList = "serviceName"),
         @Index(name = "idx_level", columnList = "level"),
-        @Index(name = "idx_timestamp", columnList = "timestamp")
+        @Index(name = "idx_timestamp", columnList = "createdAt")
 })
 @Data
 @NoArgsConstructor

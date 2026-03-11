@@ -4,12 +4,18 @@ const REFRESH_INTERVAL = 30000;
 async function fetchHealthData() {
     try {
         const response = await fetch(API_URL);
+        
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/login';
+            return;
+        }
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
         const data = await response.json();
-        renderDashboard(data.data);
-        updateLastRefreshTime();
+        renderDashboard(data.data || []);
         hideError();
     } catch (error) {
         console.error('Error fetching health data:', error);
@@ -112,12 +118,6 @@ function updateStatistics(services) {
     document.getElementById('unhealthyCount').textContent = unhealthy;
 }
 
-function updateLastRefreshTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString();
-    document.getElementById('lastUpdated').textContent = timeString;
-}
-
 function formatTime(isoString) {
     if (!isoString) return 'N/A';
     const date = new Date(isoString);
@@ -141,7 +141,7 @@ function hideError() {
     document.getElementById('errorAlert').classList.add('hidden');
 }
 
-document.getElementById('refreshBtn').addEventListener('click', fetchHealthData);
+document.getElementById('refreshBtn')?.addEventListener('click', fetchHealthData);
 
 fetchHealthData();
 setInterval(fetchHealthData, REFRESH_INTERVAL);

@@ -115,10 +115,6 @@
                     <p class="text-sm text-gray-500 mt-1">Manage your logs and analytics</p>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div class="hidden sm:flex items-center text-sm text-gray-500">
-                        <i class="far fa-clock mr-2"></i>
-                        <span id="lastUpdated">--:--:--</span>
-                    </div>
                     <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
                         <i class="fas fa-sync-alt mr-2"></i>Refresh
                     </button>
@@ -188,14 +184,6 @@
                 }
             });
 
-            const updateTime = function() {
-                const now = new Date();
-                const timeStr = now.toLocaleTimeString();
-                const elements = document.querySelectorAll('#lastUpdated');
-                elements.forEach(el => el.textContent = timeStr);
-            };
-            updateTime();
-            setInterval(updateTime, 1000);
         });
     </script>
 </body>
