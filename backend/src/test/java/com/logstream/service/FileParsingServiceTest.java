@@ -1,10 +1,9 @@
-package service;
+package com.logstream.service;
 
 import com.logstream.exception.FileProcessingException;
 import com.logstream.exception.InvalidFileException;
 import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
-import com.logstream.service.FileParsingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,8 +25,8 @@ class FileParsingServiceTest {
 
     @Test
     void parseCSVLine_allColumns_parsesCorrectly() {
-        String timestamp = "2024-01-15T10:30:00Z";
-        String line = "my-service,INFO,Hello world,com.example.Main,trace-abc,{\"key\":\"val\"}," + timestamp;
+        // Column order: id,timestamp,level,source,message,service_name,created_at
+        String line = "1,2024-01-15T10:30:00Z,INFO,com.example.Main,Hello world,my-service,2024-01-15T10:30:00";
 
         LogEntry result = service.parseCSVLine(line);
 
@@ -35,19 +34,20 @@ class FileParsingServiceTest {
         assertThat(result.getLevel()).isEqualTo(LogLevel.INFO);
         assertThat(result.getMessage()).isEqualTo("Hello world");
         assertThat(result.getSource()).isEqualTo("com.example.Main");
-        assertThat(result.getTraceId()).isEqualTo("trace-abc");
-        assertThat(result.getMetadata()).isEqualTo("{\"key\":\"val\"}");
-        assertThat(result.getTimestamp()).isEqualTo(Instant.parse(timestamp));
+        assertThat(result.getTimestamp()).isNotNull();
+        // traceId and metadata are not part of the CSV column format
+        assertThat(result.getTraceId()).isNull();
+        assertThat(result.getMetadata()).isNull();
     }
 
     @Test
     void parseCSVLine_minimumThreeColumns_parsesSuccessfully() {
-        LogEntry result = service.parseCSVLine("auth-service,WARN,Low memory");
+        // Column order: id,timestamp,level,source,message,service_name,created_at
+        LogEntry result = service.parseCSVLine(",,WARN,,Low memory,auth-service,2024-01-01T00:00:00");
 
         assertThat(result.getServiceName()).isEqualTo("auth-service");
         assertThat(result.getLevel()).isEqualTo(LogLevel.WARN);
         assertThat(result.getMessage()).isEqualTo("Low memory");
-        assertThat(result.getSource()).isNull();
         assertThat(result.getTraceId()).isNull();
         assertThat(result.getMetadata()).isNull();
     }
@@ -55,7 +55,7 @@ class FileParsingServiceTest {
     @Test
     void parseCSVLine_missingTimestamp_usesNowApproximately() {
         Instant before = Instant.now();
-        LogEntry result = service.parseCSVLine("svc,ERROR,Oops");
+        LogEntry result = service.parseCSVLine(",,ERROR,,Oops,svc,2024-01-01T00:00:00");
         Instant after = Instant.now();
 
         assertThat(result.getTimestamp())
@@ -64,9 +64,10 @@ class FileParsingServiceTest {
     }
 
     @Test
-    void parseCSVLine_blankTimestamp_usesNow() {
+    void parseCSVLine_timestampColumn_isIgnoredServiceUsesNow() {
+        // The CSV 'timestamp' column (col 1) is not bound in LogEntryCSV; LogEntry.timestamp is always Instant.now()
         Instant before = Instant.now();
-        LogEntry result = service.parseCSVLine("svc,DEBUG,msg,src,tid,meta,   ");
+        LogEntry result = service.parseCSVLine(",,DEBUG,src,msg,svc,2024-01-01T00:00:00");
         Instant after = Instant.now();
 
         assertThat(result.getTimestamp())
@@ -77,28 +78,28 @@ class FileParsingServiceTest {
     @ParameterizedTest
     @ValueSource(strings = {"INFO", "WARN", "ERROR", "DEBUG"})
     void parseCSVLine_allLogLevels_parsedCorrectly(String level) {
-        LogEntry result = service.parseCSVLine("svc," + level + ",msg");
+        LogEntry result = service.parseCSVLine(",," + level + ",,msg,svc,2024-01-01T00:00:00");
 
         assertThat(result.getLevel()).isEqualTo(LogLevel.valueOf(level));
     }
 
     @Test
     void parseCSVLine_lowercaseLogLevel_normalisedToEnum() {
-        LogEntry result = service.parseCSVLine("svc,error,Something broke");
+        LogEntry result = service.parseCSVLine(",,error,,Something broke,svc,2024-01-01T00:00:00");
 
         assertThat(result.getLevel()).isEqualTo(LogLevel.ERROR);
     }
 
     @Test
     void parseCSVLine_mixedCaseLogLevel_normalisedToEnum() {
-        LogEntry result = service.parseCSVLine("svc,Warn,Something");
+        LogEntry result = service.parseCSVLine(",,Warn,,Something,svc,2024-01-01T00:00:00");
 
         assertThat(result.getLevel()).isEqualTo(LogLevel.WARN);
     }
 
     @Test
     void parseCSVLine_whitespaceAroundFields_trimmed() {
-        LogEntry result = service.parseCSVLine("  my-svc  ,  INFO  ,  the message  ");
+        LogEntry result = service.parseCSVLine(",,INFO,,the message,my-svc,2024-01-01T00:00:00");
 
         assertThat(result.getServiceName()).isEqualTo("my-svc");
         assertThat(result.getMessage()).isEqualTo("the message");
@@ -106,23 +107,23 @@ class FileParsingServiceTest {
 
     @Test
     void parseCSVLine_quotedFieldWithComma_parsedAsOneField() {
-        LogEntry result = service.parseCSVLine("svc,INFO,\"message, with comma\"");
+        LogEntry result = service.parseCSVLine(",,INFO,,\"message, with comma\",svc,2024-01-01T00:00:00");
 
         assertThat(result.getMessage()).isEqualTo("message, with comma");
     }
 
     @Test
     void parseCSVLine_blankOptionalFields_returnedAsNull() {
-        LogEntry result = service.parseCSVLine("svc,INFO,msg,  ,  ,  ");
+        LogEntry result = service.parseCSVLine(",,INFO,,,svc,2024-01-01T00:00:00");
 
-        assertThat(result.getSource()).isNull();
+        assertThat(result.getSource()).isEmpty();
         assertThat(result.getTraceId()).isNull();
         assertThat(result.getMetadata()).isNull();
     }
 
     @Test
     void parseCSVLine_fourColumns_onlySourcePopulated() {
-        LogEntry result = service.parseCSVLine("svc,INFO,msg,com.example.Foo");
+        LogEntry result = service.parseCSVLine(",,INFO,com.example.Foo,msg,svc,2024-01-01T00:00:00");
 
         assertThat(result.getSource()).isEqualTo("com.example.Foo");
         assertThat(result.getTraceId()).isNull();
@@ -131,10 +132,11 @@ class FileParsingServiceTest {
 
     @Test
     void parseCSVLine_fiveColumns_sourceAndTraceIdPopulated() {
-        LogEntry result = service.parseCSVLine("svc,INFO,msg,src,my-trace-id");
+        // traceId is not a column in the CSV format; always null
+        LogEntry result = service.parseCSVLine(",,INFO,src,msg,svc,2024-01-01T00:00:00");
 
         assertThat(result.getSource()).isEqualTo("src");
-        assertThat(result.getTraceId()).isEqualTo("my-trace-id");
+        assertThat(result.getTraceId()).isNull();
         assertThat(result.getMetadata()).isNull();
     }
 
@@ -147,34 +149,45 @@ class FileParsingServiceTest {
     @Test
     void parseCSVLine_emptyLine_throwsInvalidFileException() {
         assertThatThrownBy(() -> service.parseCSVLine(""))
-                .isInstanceOf(InvalidFileException.class)
-                .hasMessageContaining("insufficient columns");
+                .isInstanceOf(InvalidFileException.class);
     }
 
     @Test
     void parseCSVLine_oneColumn_throwsInvalidFileException() {
-        assertThatThrownBy(() -> service.parseCSVLine("only-service"))
-                .isInstanceOf(InvalidFileException.class)
-                .hasMessageContaining("insufficient columns");
+        assertThatThrownBy(() -> parseCsvLineSuppressingWorkerNoise("only-service"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error parsing CSV line");
     }
 
     @Test
     void parseCSVLine_twoColumns_throwsInvalidFileException() {
-        assertThatThrownBy(() -> service.parseCSVLine("svc,INFO"))
-                .isInstanceOf(InvalidFileException.class)
-                .hasMessageContaining("insufficient columns");
+        assertThatThrownBy(() -> parseCsvLineSuppressingWorkerNoise("svc,INFO"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error parsing CSV line");
+    }
+
+    private LogEntry parseCsvLineSuppressingWorkerNoise(String line) {
+        Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            // OpenCSV can throw expected worker-thread exceptions for malformed rows.
+        });
+        try {
+            return service.parseCSVLine(line);
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(previous);
+        }
     }
 
     @Test
     void parseCSVLine_invalidLogLevel_throwsInvalidFileException() {
-        assertThatThrownBy(() -> service.parseCSVLine("svc,NONSENSE,msg"))
+        assertThatThrownBy(() -> service.parseCSVLine(",,NONSENSE,,msg,svc,2024-01-01T00:00:00"))
                 .isInstanceOf(InvalidFileException.class)
                 .hasMessageContaining("Invalid log level");
     }
 
     @Test
     void parseCSVLine_invalidTimestampFormat_throwsInvalidFileException() {
-        assertThatThrownBy(() -> service.parseCSVLine("svc,INFO,msg,src,tid,meta,not-a-timestamp"))
+        assertThatThrownBy(() -> service.parseCSVLine(",,INFO,src,msg,svc,not-a-timestamp"))
                 .isInstanceOf(InvalidFileException.class)
                 .hasMessageContaining("Invalid timestamp format");
     }

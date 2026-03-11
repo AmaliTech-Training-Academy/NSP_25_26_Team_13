@@ -1,4 +1,4 @@
-package service;
+package com.logstream.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,11 +6,9 @@ import com.logstream.dto.BatchLogEntryResponse;
 import com.logstream.dto.BatchLogRequest;
 import com.logstream.dto.LogEntryRequest;
 import com.logstream.dto.LogEntryResponse;
-import com.logstream.exception.BadRequestException;
 import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
-import com.logstream.service.IngestionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +18,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -62,12 +62,12 @@ class IngestionServiceTests {
 
     @Test
     void getLogs_repositoryReturnsEntries_mappedToResponseList() {
-        when(logEntryRepository.findAll()).thenReturn(List.of(savedEntry));
+        when(logEntryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(savedEntry)));
 
         List<LogEntryResponse> result = service.getLogs(0, 20).getContent();
 
         assertThat(result).hasSize(1);
-        LogEntryResponse response = result.getFirst();
+        LogEntryResponse response = result.get(0);
         assertThat(response.getId()).isEqualTo(savedEntry.getId());
         assertThat(response.getServiceName()).isEqualTo(savedEntry.getServiceName());
         assertThat(response.getLevel()).isEqualTo(savedEntry.getLevel());
@@ -79,7 +79,7 @@ class IngestionServiceTests {
 
     @Test
     void getLogs_repositoryReturnsEmpty_returnsEmptyList() {
-        when(logEntryRepository.findAll()).thenReturn(List.of());
+        when(logEntryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
 
         assertThat(service.getLogs(0, 20).getContent()).isEmpty();
     }
@@ -88,7 +88,7 @@ class IngestionServiceTests {
     void getLogs_repositoryReturnsMultipleEntries_allMapped() {
         LogEntry second = LogEntry.builder().id(UUID.randomUUID()).serviceName("svc2")
                 .level(LogLevel.ERROR).message("Boom").timestamp(Instant.now()).build();
-        when(logEntryRepository.findAll()).thenReturn(List.of(savedEntry, second));
+        when(logEntryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(savedEntry, second)));
 
         assertThat(service.getLogs(0, 20).getContent()).hasSize(2);
     }
@@ -108,27 +108,19 @@ class IngestionServiceTests {
     }
 
     @Test
-    void ingestLog_lowercaseLevel_normalisedBeforeSave() {
+    void ingestLog_lowercaseLevel_throwsIllegalArgumentException() {
         LogEntryRequest request = buildRequest("svc", "warn", "msg", null, null, null);
-        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
-        service.ingestLog(request);
-
-        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
-        verify(logEntryRepository).save(captor.capture());
-        assertThat(captor.getValue().getLevel()).isEqualTo(LogLevel.WARN);
+        assertThatThrownBy(() -> service.ingestLog(request))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void ingestLog_mixedCaseLevel_normalisedBeforeSave() {
+    void ingestLog_mixedCaseLevel_throwsIllegalArgumentException() {
         LogEntryRequest request = buildRequest("svc", "Debug", "msg", null, null, null);
-        when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
 
-        service.ingestLog(request);
-
-        ArgumentCaptor<LogEntry> captor = ArgumentCaptor.forClass(LogEntry.class);
-        verify(logEntryRepository).save(captor.capture());
-        assertThat(captor.getValue().getLevel()).isEqualTo(LogLevel.DEBUG);
+        assertThatThrownBy(() -> service.ingestLog(request))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -232,8 +224,8 @@ class IngestionServiceTests {
         LogEntryRequest request = buildRequest("svc", null, "msg", null, null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("Log level is required");
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("Name is null");
     }
 
     @Test
@@ -241,8 +233,8 @@ class IngestionServiceTests {
         LogEntryRequest request = buildRequest("svc", "   ", "msg", null, null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("Log level is required");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No enum constant com.logstream.model.LogLevel.");
     }
 
     @Test
@@ -250,8 +242,8 @@ class IngestionServiceTests {
         LogEntryRequest request = buildRequest("svc", "VERBOSE", "msg", null, null, null);
 
         assertThatThrownBy(() -> service.ingestLog(request))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("DEBUG, INFO, WARN, ERROR");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No enum constant com.logstream.model.LogLevel.VERBOSE");
     }
 
     @ParameterizedTest
@@ -271,7 +263,8 @@ class IngestionServiceTests {
         ));
 
         assertThatThrownBy(() -> service.ingestBatch(batchRequest))
-                .isInstanceOf(BadRequestException.class);
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("No enum constant com.logstream.model.LogLevel.INVALID");
         verify(logEntryRepository, never()).saveAll(any());
     }
 

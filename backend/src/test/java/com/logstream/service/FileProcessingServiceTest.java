@@ -1,4 +1,4 @@
-package service;
+package com.logstream.service;
 
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,9 +9,6 @@ import com.logstream.exception.InvalidFileException;
 import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
-import com.logstream.service.BatchPersistenceService;
-import com.logstream.service.FileParsingService;
-import com.logstream.service.FileProcessingService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -173,7 +170,7 @@ class FileProcessingServiceTest {
 
         ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
         verify(batchPersistenceService).saveBatch(captor.capture());
-        assertThat(captor.getValue().getFirst().getMetadata()).isNull();
+        assertThat(captor.getValue().get(0).getMetadata()).isNull();
     }
 
     @Test
@@ -186,7 +183,7 @@ class FileProcessingServiceTest {
 
         ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
         verify(batchPersistenceService).saveBatch(captor.capture());
-        assertThat(captor.getValue().getFirst().getMetadata()).contains("key");
+        assertThat(captor.getValue().get(0).getMetadata()).contains("key");
     }
 
     @Test
@@ -216,7 +213,7 @@ class FileProcessingServiceTest {
         ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
         verify(batchPersistenceService).saveBatch(captor.capture());
 
-        LogEntry entry = captor.getValue().getFirst();
+        LogEntry entry = captor.getValue().get(0);
         assertThat(entry.getServiceName()).isEqualTo("auth-service");
         assertThat(entry.getLevel()).isEqualTo(LogLevel.ERROR);
         assertThat(entry.getMessage()).isEqualTo("Something failed");

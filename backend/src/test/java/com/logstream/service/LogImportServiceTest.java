@@ -1,11 +1,9 @@
-package service;
+package com.logstream.service;
 
 import com.logstream.exception.InvalidFileException;
 import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
-import com.logstream.service.FileProcessingService;
-import com.logstream.service.LogImportService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
