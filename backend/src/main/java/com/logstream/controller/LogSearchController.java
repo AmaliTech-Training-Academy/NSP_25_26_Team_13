@@ -28,15 +28,17 @@ public class LogSearchController {
             @RequestParam(name = "page", required = false, defaultValue = "0") int page,
             @RequestParam(name = "size", required = false, defaultValue = "20") int size
     ) {
-        LogSearchRequest request = new LogSearchRequest();
-        request.setServiceName(service);
-        request.setLevel(level);
-        request.setStartTime(startTime);
-        request.setEndTime(endTime);
-        request.setKeyword(keyword);
-        request.setPage(page);
-        request.setSize(size);
+        LogSearchRequest request = LogSearchRequest.builder()
+                .serviceName(service)
+                .level(level)
+                .startTime(startTime)
+                .endTime(endTime)
+                .keyword(keyword)
+                .page(page)
+                .size(size)
+                .build();
 
         return searchService.searchLogs(request);
     }
 }
+

@@ -42,7 +42,6 @@ public class LogEntry {
     private String message;
 
     private String source;
-    private String traceId;
 
     @Column(updatable = false)
     private Instant createdAt;
