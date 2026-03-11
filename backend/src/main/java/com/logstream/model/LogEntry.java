@@ -51,6 +51,7 @@ public class LogEntry {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = Instant.now();
+        if (createdAt == null)
+            createdAt = Instant.now();
     }
 }

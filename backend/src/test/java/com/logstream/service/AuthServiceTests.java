@@ -1,4 +1,4 @@
-package service;
+package com.logstream.service;
 
 import com.logstream.config.JwtService;
 import com.logstream.dto.AuthRequest;
@@ -7,7 +7,6 @@ import com.logstream.dto.RegisterRequest;
 import com.logstream.model.Role;
 import com.logstream.model.User;
 import com.logstream.repository.UserRepository;
-import com.logstream.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
