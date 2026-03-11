@@ -4,16 +4,15 @@
     <title>Edit Retention Policy - LogStream</title>
 </head>
 <body>
-    <div th:replace="layout :: mobile-header"></div>
-    <div th:replace="layout :: sidebar"></div>
-    <div th:replace="layout :: header"></div>
-    <div th:replace="layout :: alerts"></div>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
 
     <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
         <div class="max-w-2xl mx-auto">
             <div class="bg-white rounded-lg shadow p-6">
                 <h2 class="text-2xl font-bold text-gray-900 mb-6">Edit Retention Policy</h2>
-                <form th:action="@{/retention/update/{id}(id=${policy.id})}" method="post" th:object="${policy}" class="space-y-6">
+                <form th:action="@{/retention/update/{serviceName}(serviceName=${policy.serviceName})}" method="post" th:object="${policy}" class="space-y-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Service Name</label>
                         <input type="text" th:field="*{serviceName}" required
