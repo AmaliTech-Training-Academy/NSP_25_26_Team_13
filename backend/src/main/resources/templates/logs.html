@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="layout :: head">
+    <title>Log Management - LogStream</title>
+</head>
+<body>
+    <div th:replace="layout :: mobile-header"></div>
+    <div th:replace="layout :: sidebar"></div>
+    <div th:replace="layout :: header"></div>
+    <div th:replace="layout :: alerts"></div>
+
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Filters</h2>
+            <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Service</label>
+                    <select name="service" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="">All Services</option>
+                        <option th:each="svc : ${services}" th:value="${svc.service}" th:text="${svc.service}"></option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Level</label>
+                    <select name="level" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="">All Levels</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="WARN">WARN</option>
+                        <option value="INFO">INFO</option>
+                        <option value="DEBUG">DEBUG</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Search</label>
+                    <input type="text" name="search" placeholder="Search message..." class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div class="flex items-end space-x-2">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                        <i class="fas fa-search mr-2"></i>Search
+                    </button>
+                    <a href="/logs/import" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition">
+                        <i class="fas fa-upload mr-2"></i>Import
+                    </a>
+                    <a href="/logs/export/csv" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition">
+                        <i class="fas fa-download mr-2"></i>Export
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Timestamp</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Service</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Level</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Message</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Source</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr th:each="log : ${logs}" class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900" th:text="${#temporals.format(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                            <td class="px-6 py-4 text-sm text-gray-900" th:text="${log.serviceName}"></td>
+                            <td class="px-6 py-4 text-sm">
+                                <span th:classappend="${log.level == 'ERROR' ? 'bg-red-100 text-red-800' : log.level == 'WARN' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}"
+                                      class="px-2 py-1 rounded text-xs font-medium" th:text="${log.level}"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600 truncate" th:text="${log.message}"></td>
+                            <td class="px-6 py-4 text-sm text-gray-600" th:text="${log.source}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(logs)}">
+                            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                No logs found
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div th:if="${totalPages > 1}" class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    Page <span th:text="${currentPage + 1}"></span> of <span th:text="${totalPages}"></span>
+                </div>
+                <div class="space-x-2">
+                    <a th:if="${currentPage > 0}" th:href="@{/logs(page=${currentPage - 1})}" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
+                        Previous
+                    </a>
+                    <a th:if="${currentPage < totalPages - 1}" th:href="@{/logs(page=${currentPage + 1})}" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
+                        Next
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
