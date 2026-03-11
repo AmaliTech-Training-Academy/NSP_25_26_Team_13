@@ -53,7 +53,7 @@ Response Fields
 Example JSON response
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqYW5lQGV4YW1wbGUuY29tIn0.signature",
+  "token": "<token>",
   "email": "jane@example.com",
   "role": "ROLE_USER"
 }
@@ -95,7 +95,7 @@ Response Fields
 Example JSON response
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqYW5lQGV4YW1wbGUuY29tIn0.signature",
+  "token": "<token>",
   "email": "jane@example.com",
   "role": "ROLE_ADMIN"
 }
