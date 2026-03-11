@@ -1,6 +1,5 @@
-package config;
+package com.logstream.config;
 
-import com.logstream.config.JwtService;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
