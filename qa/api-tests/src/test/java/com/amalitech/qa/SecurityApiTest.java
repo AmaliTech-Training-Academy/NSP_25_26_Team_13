@@ -49,4 +49,56 @@ public class SecurityApiTest extends BaseTest {
                 .then()
                 .statusCode(anyOf(is(401), is(403)));
     }
+
+    @Test(priority = 4)
+    public void testSqlInjectionPrevention() {
+        // Attempting a simple SQL injection in the service name parameter
+        Map<String, Object> body = new HashMap<>();
+        body.put("serviceName", "' OR '1'='1");
+        body.put("page", 0);
+        body.put("size", 10);
+
+        given()
+                .header("Authorization", "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when()
+                .post("/api/logs/search")
+                .then()
+                .statusCode(200)
+                .body("content", hasSize(0)); // Should return 0 logs, not all logs
+    }
+
+    @Test(priority = 5)
+    public void testJwtTamperingRejection() {
+        // Take a valid token and manually change the role in the payload WITHOUT
+        // re-signing
+        String validToken = generateManualToken("user@amalitech.com", "USER");
+        String[] parts = validToken.split("\\.");
+
+        // Base64 for {"sub":"user@amalitech.com","role":"ADMIN","iat":...}
+        // This is a simplified tampering example - changing the payload part
+        String tamperedPayload = "eyJzdWIiOiJ1c2VyQGFtYWxpdGVjaC5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3NzMxNjI5NzMsImV4cCI6MTc3MzI0OTM3M30";
+        String tamperedToken = parts[0] + "." + tamperedPayload + "." + parts[2];
+
+        given()
+                .header("Authorization", "Bearer " + tamperedToken)
+                .when()
+                .get("/api/logs/analytics")
+                .then()
+                .statusCode(anyOf(is(401), is(403)));
+    }
+
+    @Test(priority = 6)
+    public void testRbacAdminOnlyRestrictedEndpoint() {
+        String userToken = generateManualToken("user@test.com", "USER");
+
+        // Regular USER should not be able to access the retention config
+        given()
+                .header("Authorization", "Bearer " + userToken)
+                .when()
+                .get("/api/retention")
+                .then()
+                .statusCode(anyOf(is(403), is(401)));
+    }
 }
