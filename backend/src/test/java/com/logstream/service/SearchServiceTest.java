@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.Instant;
 import java.util.List;
@@ -111,13 +112,17 @@ class SearchServiceTest {
 
     @Test
     void searchLogs_paginationIsApplied() {
-        when(logEntryRepository.findByTimestampBetween(any(Instant.class), any(Instant.class), eq(PageRequest.of(2, 10))))
+        when(logEntryRepository.findByTimestampBetween(any(Instant.class), any(Instant.class), any(PageRequest.class)))
                 .thenReturn(Page.empty());
 
         LogSearchRequest request = LogSearchRequest.builder().page(2).size(10).build();
         searchService.searchLogs(request);
 
-        verify(logEntryRepository).findByTimestampBetween(any(Instant.class), any(Instant.class), eq(PageRequest.of(2, 10)));
+        verify(logEntryRepository).findByTimestampBetween(
+                any(Instant.class),
+                any(Instant.class),
+                eq(PageRequest.of(2, 10, Sort.by(Sort.Direction.DESC, "timestamp")))
+        );
     }
 
     @Test
