@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - LogStream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .signup-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .signup-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+    </style>
+</head>
+<body class="signup-container flex items-center justify-center">
+    <div class="w-full max-w-md px-4">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
+                <i class="fas fa-stream text-3xl text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white">LogStream</h1>
+            <p class="text-slate-400 mt-2">Create your account</p>
+        </div>
+
+        <div class="signup-card rounded-2xl shadow-2xl p-8">
+            <div id="errorMessage" class="hidden mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-circle mr-3"></i>
+                    <span id="errorText"></span>
+                </div>
+            </div>
+
+            <div id="successMessage" class="hidden mb-4 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 rounded-r">
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle mr-3"></i>
+                    <span id="successText">Account created successfully!</span>
+                </div>
+            </div>
+
+            <form id="signupForm" class="space-y-5">
+                <div>
+                    <label for="fullName" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-user mr-2 text-gray-400"></i>Full Name
+                    </label>
+                    <input type="text" id="fullName" name="fullName" required
+                           class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 transition"
+                           placeholder="Enter your full name">
+                </div>
+
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-envelope mr-2 text-gray-400"></i>Email Address
+                    </label>
+                    <input type="email" id="email" name="email" required
+                           class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 transition"
+                           placeholder="Enter your email">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-gray-400"></i>Password
+                    </label>
+                    <input type="password" id="password" name="password" required
+                           class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 transition"
+                           placeholder="Create a password (min 8 characters)">
+                    <p class="text-xs text-gray-500 mt-1">Must be at least 8 characters with letters and numbers</p>
+                </div>
+
+                <div>
+                    <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-gray-400"></i>Confirm Password
+                    </label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required
+                           class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 transition"
+                           placeholder="Confirm your password">
+                </div>
+
+                <button type="submit" id="signupBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                    <span id="signupText">Create Account</span>
+                    <span id="signupSpinner" class="hidden ml-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-gray-600">Already have an account? 
+                    <a href="/login" class="text-blue-600 hover:text-blue-700 font-semibold transition">Sign in</a>
+                </p>
+            </div>
+        </div>
+
+        <p class="text-center text-slate-500 text-sm mt-6">
+            &copy; 2024 LogStream. All rights reserved.
+        </p>
+    </div>
+
+    <script>
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fullName = document.getElementById('fullName').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const signupBtn = document.getElementById('signupBtn');
+            const signupText = document.getElementById('signupText');
+            const signupSpinner = document.getElementById('signupSpinner');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            const successMessage = document.getElementById('successMessage');
+
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+
+            if (password !== confirmPassword) {
+                errorText.textContent = 'Passwords do not match';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (password.length < 8) {
+                errorText.textContent = 'Password must be at least 8 characters long';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+                errorText.textContent = 'Password must contain both letters and numbers';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            signupBtn.disabled = true;
+            signupText.textContent = 'Creating account...';
+            signupSpinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fullName, email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    successMessage.classList.remove('hidden');
+                    document.getElementById('signupForm').reset();
+                    setTimeout(() => {
+                        window.location.href = '/login?registered=true';
+                    }, 1500);
+                } else {
+                    throw new Error(data.message || 'Registration failed');
+                }
+            } catch (error) {
+                errorText.textContent = error.message || 'Registration failed. Please try again.';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                signupBtn.disabled = false;
+                signupText.textContent = 'Create Account';
+                signupSpinner.classList.add('hidden');
+            }
+        });
+
+        if (localStorage.getItem('jwt_token')) {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

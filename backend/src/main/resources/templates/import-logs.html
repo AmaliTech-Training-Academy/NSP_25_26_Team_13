@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{layout :: head}">
+    <title>Import Logs - LogStream</title>
+</head>
+<body>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
+
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="bg-white rounded-lg shadow p-6" th:classappend="${!isAdmin} ? 'opacity-50 pointer-events-none' : ''">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Import Logs from CSV</h2>
+                
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 class="font-semibold text-blue-900 mb-2">CSV Format Requirements</h3>
+                    <p class="text-sm text-blue-800">Your CSV file must have the following columns:</p>
+                    <code class="block text-xs bg-white p-2 mt-2 rounded border border-blue-200">
+                        ID,Timestamp,Service,Level,Message,Source,Created At
+                    </code>
+                </div>
+
+                <form th:action="@{/logs/import/csv}" method="post" enctype="multipart/form-data" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition cursor-pointer"
+                             onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-600">Click to select or drag and drop</p>
+                            <p class="text-xs text-gray-500 mt-1">CSV files only</p>
+                            <input type="file" id="fileInput" name="file" accept=".csv" required
+                                   class="hidden" onchange="updateFileName(this)">
+                        </div>
+                        <p id="fileName" class="mt-2 text-sm text-gray-600"></p>
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition">
+                            <i class="fas fa-upload mr-2"></i>Import
+                        </button>
+                        <a href="/logs" class="bg-gray-300 text-gray-900 px-6 py-2 rounded-md hover:bg-gray-400 transition">
+                            <i class="fas fa-times mr-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function updateFileName(input) {
+            const fileName = input.files[0]?.name || '';
+            document.getElementById('fileName').textContent = fileName ? 'Selected: ' + fileName : '';
+        }
+    </script>
+</body>
+</html>

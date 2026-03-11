@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:fragment="head">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LogStream - Log Management System">
+    <title th:text="${pageTitle} ?: 'LogStream'">LogStream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --border-color: #e2e8f0;
+        }
+        .sidebar-link {
+            transition: all 0.2s ease;
+        }
+        .sidebar-link:hover {
+            background-color: var(--sidebar-hover);
+        }
+        .sidebar-link.active {
+            background: linear-gradient(90deg, var(--primary) 0%, transparent 100%);
+            border-left: 3px solid #60a5fa;
+        }
+        .sidebar-collapsed .sidebar-link span,
+        .sidebar-collapsed .nav-text {
+            display: none;
+        }
+        .w-16 {
+            width: 4rem;
+        }
+        .w-64 {
+            width: 16rem;
+        }
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .status-pulse {
+            animation: statusPulse 2s infinite;
+        }
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Mobile Header -->
+    <div th:fragment="mobile-header" class="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <i class="fas fa-stream text-xl" aria-hidden="true"></i>
+            <span class="font-bold text-lg">LogStream</span>
+        </div>
+        <button id="mobileMenuBtn" class="p-2 hover:bg-slate-800 rounded-lg" aria-label="Toggle menu">
+            <i class="fas fa-bars text-xl" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <!-- Header -->
+    <div th:fragment="header" class="md:ml-64">
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900" th:text="${pageTitle} ?: 'Dashboard'">Dashboard</h1>
+                    <p class="text-sm text-gray-500 mt-1">Manage your logs and analytics</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm" aria-label="Refresh page">
+                        <i class="fas fa-sync-alt mr-2" aria-hidden="true"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
+    </div>
+
+    <!-- Alerts -->
+    <div th:fragment="alerts">
+        <div th:if="${success}" class="md:ml-64 bg-green-50 border-l-4 border-green-500 text-green-700 px-4 py-3 m-4 rounded-r shadow-sm relative" role="alert">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle mr-3" aria-hidden="true"></i>
+                <span th:text="${success}"></span>
+            </div>
+            <button type="button" class="absolute top-0 right-0 p-2" onclick="this.parentElement.remove()" aria-label="Close alert">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div th:if="${error}" class="md:ml-64 bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 m-4 rounded-r shadow-sm relative" role="alert">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle mr-3" aria-hidden="true"></i>
+                <span th:text="${error}"></span>
+            </div>
+            <button type="button" class="absolute top-0 right-0 p-2" onclick="this.parentElement.remove()" aria-label="Close alert">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        function isAuthenticated() {
+            return localStorage.getItem('jwt_token') !== null;
+        }
+
+        function redirectToLogin() {
+            window.location.href = '/login';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/login' && currentPath !== '/logout' && !isAuthenticated()) {
+                redirectToLogin();
+                return;
+            }
+
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            
+            if (mobileMenuBtn && sidebar) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('hidden');
+                    sidebar.classList.toggle('fixed');
+                    sidebar.classList.toggle('inset-0');
+                    sidebar.classList.toggle('z-50');
+                });
+            }
+
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    const isCollapsed = sidebar.classList.contains('w-16');
+                    if (isCollapsed) {
+                        sidebar.classList.remove('w-16');
+                        sidebar.classList.add('w-64');
+                        localStorage.setItem('sidebarCollapsed', 'false');
+                    } else {
+                        sidebar.classList.remove('w-64');
+                        sidebar.classList.add('w-16');
+                        localStorage.setItem('sidebarCollapsed', 'true');
+                    }
+                });
+            }
+
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true' && sidebar) {
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-16');
+            }
+
+            // Set active link
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                const page = link.getAttribute('data-page');
+                if (page && (currentPath === page || (page === '/' && currentPath === ''))) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

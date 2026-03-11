@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{layout :: head}">
+    <title>Edit Retention Policy - LogStream</title>
+</head>
+<body>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
+
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Edit Retention Policy</h2>
+                <form th:action="@{/retention/update/{serviceName}(serviceName=${policy.serviceName})}" method="post" th:object="${policy}" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Service Name</label>
+                        <input type="text" th:field="*{serviceName}" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Retention Days</label>
+                        <input type="number" th:field="*{retentionDays}" min="1" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" th:field="*{archiveEnabled}"
+                                   class="rounded border-gray-300 text-blue-600">
+                            <span class="ml-2 text-sm text-gray-700">Enable Archive</span>
+                        </label>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition">
+                            <i class="fas fa-save mr-2"></i>Save Changes
+                        </button>
+                        <a href="/retention" class="bg-gray-300 text-gray-900 px-6 py-2 rounded-md hover:bg-gray-400 transition">
+                            <i class="fas fa-times mr-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+    <script>
+        // Clear URL query params without reload after page loads
+        if (window.location.search) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    </script>
+</body>
+</html>

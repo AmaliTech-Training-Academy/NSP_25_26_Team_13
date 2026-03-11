@@ -1,4 +1,26 @@
-pandas==2.1.3
-sqlalchemy==2.0.23
+# Database & ORM
 psycopg2-binary==2.9.9
-python-dotenv==1.0.0
+sqlalchemy==2.0.27
+
+# Data Processing 
+pandas==2.2.0
+numpy==1.26.4
+pyarrow==12.0.0 
+
+# Environment & Logic
+python-dotenv==1.0.1
+python-dateutil==2.8.2  # retention/archival time math
+
+# Testing & Mocking
+pytest==8.0.0
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+
+# Data Generation
+faker==22.2.0
+
+boto3==1.34.34
+minio==7.2.5
+
+plotly 
+dash 

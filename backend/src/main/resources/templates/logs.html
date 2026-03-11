@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{layout :: head}">
+    <title>Log Management - LogStream</title>
+</head>
+<body>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
+
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Service</label>
+                    <select id="serviceFilter" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Services</option>
+                        <option th:each="svc : ${services}" th:value="${svc.service}" th:text="${svc.service}" th:selected="${param.service == svc.service}"></option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                    <select id="levelFilter" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Levels</option>
+                        <option value="ERROR" th:selected="${param.level == 'ERROR'}">ERROR</option>
+                        <option value="WARN" th:selected="${param.level == 'WARN'}">WARN</option>
+                        <option value="INFO" th:selected="${param.level == 'INFO'}">INFO</option>
+                        <option value="DEBUG" th:selected="${param.level == 'DEBUG'}">DEBUG</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                    <input type="text" id="searchFilter" th:value="${param.search}" placeholder="Search message..."
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="flex items-end">
+                    <a href="/logs" class="w-full block text-center bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 transition">
+                        <i class="fas fa-times mr-2"></i>Clear
+                    </a>
+                </div>
+                <div class="flex items-end">
+                    <a href="/logs/import" class="w-full block text-center bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition"
+                       th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
+                        <i class="fas fa-upload mr-2"></i>Import
+                    </a>
+                </div>
+                <div class="flex items-end">
+                    <button id="exportBtn" class="w-full block text-center bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition"
+                        th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
+                        <i class="fas fa-download mr-2"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden" id="logsTableContainer" th:fragment="logsTable">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Timestamp</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Service</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Level</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Message</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody" class="divide-y divide-gray-200">
+                        <tr th:each="log : ${logs}" class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" th:text="${#temporals.format(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" th:text="${log.serviceName}"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span th:classappend="${log.level == 'ERROR' ? 'bg-red-100 text-red-800' : log.level == 'WARN' ? 'bg-yellow-100 text-yellow-800' : log.level == 'INFO' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}"
+                                      class="px-2.5 py-0.5 rounded-full text-xs font-medium" th:text="${log.level}"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600 max-w-md truncate" th:title="${log.message}" th:text="${log.message}"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" th:text="${log.source}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(logs)}">
+                            <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                                <div class="flex flex-col items-center">
+                                    <i class="fas fa-inbox text-4xl text-gray-300 mb-2"></i>
+                                    <p>No logs found</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div id="paginationContainer" th:if="${totalPages > 1}" class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-600">
+                        Page <span class="font-medium" id="currentPageDisplay" th:text="${currentPage + 1}"></span> of <span class="font-medium" th:text="${totalPages}"></span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="prevPage" th:disabled="${currentPage == 0}" 
+                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+                            <i class="fas fa-chevron-left mr-1"></i> Previous
+                        </button>
+                        <button id="nextPage" th:disabled="${currentPage >= totalPages - 1}"
+                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+                            Next <i class="fas fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script th:inline="javascript">
+        let currentPage = /*[[${currentPage}]]*/ 0;
+        let totalPages = /*[[${totalPages}]]*/ 0;
+        
+        function loadLogs(page) {
+            const service = document.getElementById('serviceFilter').value;
+            const level = document.getElementById('levelFilter').value;
+            const search = document.getElementById('searchFilter').value;
+            
+            let url = '/logs-data?page=' + page;
+            if (service) url += '&service=' + encodeURIComponent(service);
+            if (level) url += '&level=' + encodeURIComponent(level);
+            if (search) url += '&search=' + encodeURIComponent(search);
+            
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('logsTableContainer').innerHTML = html;
+                    attachPaginationEvents();
+                })
+                .catch(error => console.error('Error loading logs:', error));
+        }
+        
+        function attachPaginationEvents() {
+            const prevBtn = document.getElementById('prevPage');
+            const nextBtn = document.getElementById('nextPage');
+            
+            if (prevBtn) {
+                prevBtn.onclick = function() {
+                    if (currentPage > 0) loadLogs(currentPage - 1);
+                };
+            }
+            if (nextBtn) {
+                nextBtn.onclick = function() {
+                    if (currentPage < totalPages - 1) loadLogs(currentPage + 1);
+                };
+            }
+        }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                clearTimeout(timeout);
+                timeout = setTimeout(func, wait);
+            };
+        }
+        
+        const debouncedLoad = debounce(function() { loadLogs(0); }, 500);
+        
+        document.getElementById('serviceFilter').addEventListener('change', debouncedLoad);
+        document.getElementById('levelFilter').addEventListener('change', debouncedLoad);
+        document.getElementById('searchFilter').addEventListener('input', debouncedLoad);
+        
+        attachPaginationEvents();
+
+        document.getElementById('exportBtn').addEventListener('click', async function() {
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exporting...';
+            btn.disabled = true;
+
+            try {
+                const service = document.getElementById('serviceFilter').value;
+                const level = document.getElementById('levelFilter').value;
+                const search = document.getElementById('searchFilter').value;
+
+                let csvContent = 'timestamp,service,level,message,source\n';
+                let page = 0;
+                let hasMore = true;
+
+                while (hasMore) {
+                    let url = '/api/logs/search?page=' + page + '&size=1000';
+                    if (service) url += '&service=' + encodeURIComponent(service);
+                    if (level) url += '&level=' + encodeURIComponent(level);
+                    if (search) url += '&keyword=' + encodeURIComponent(search);
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.content && data.content.length > 0) {
+                        data.content.forEach(log => {
+                            const timestamp = log.timestamp ? new Date(log.timestamp).toISOString().replace('T', ' ').substring(0, 19) : '';
+                            const message = log.message ? log.message.replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '') : '';
+                            const serviceName = log.serviceName || '';
+                            const levelStr = log.level || '';
+                            const source = log.source || '';
+                            csvContent += `"${timestamp}","${serviceName}","${levelStr}","${message}","${source}"\n`;
+                        });
+                        page++;
+                        hasMore = !data.last;
+                    } else {
+                        hasMore = false;
+                    }
+                }
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'logs-export-' + new Date().toISOString().slice(0, 10) + '.csv');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export logs: ' + error.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
