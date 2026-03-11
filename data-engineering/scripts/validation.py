@@ -57,7 +57,7 @@ class ValidationReport:
             for check, count in self.issues.items():
                 lines.append(f"    \u2717 {check:<40} {count:>6,} rows affected")
         else:
-            lines.append("  \u2713 All checks passed")
+            lines.append(" [OK] All checks passed")
         lines.append(f"{'='*55}\n")
         return "\n".join(lines)
 
