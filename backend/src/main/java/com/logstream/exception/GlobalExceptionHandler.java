@@ -29,15 +29,20 @@ public class GlobalExceptionHandler {
 
         Map<String, String> errors = Stream.concat(
                 ex.getBindingResult().getFieldErrors().stream()
-                        .map(e -> Map.entry(e.getField(), Objects.requireNonNull(e.getDefaultMessage()))),
+                        .map(e -> Map.entry(e.getField(), Objects.requireNonNullElse(e.getDefaultMessage(), "Invalid value"))),
                 ex.getBindingResult().getGlobalErrors().stream()
-                        .map(e -> Map.entry(e.getObjectName(), Objects.requireNonNull(e.getDefaultMessage())))
-        ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                (existing, replacement) -> existing));
+                        .map(e -> Map.entry(e.getObjectName(), Objects.requireNonNullElse(e.getDefaultMessage(), "Validation error")))
+        ).collect(Collectors.groupingBy(
+                Map.Entry::getKey,
+                Collectors.mapping(Map.Entry::getValue, Collectors.joining(", "))
+        ));
 
         log.warn("Validation failure: {}", errors);
+
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.builder().errors(errors).build());
+                .body(ErrorResponse.builder()
+                        .errors(errors)
+                        .build());
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -60,7 +65,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
         log.warn("Bad request: {}", ex.getMessage());
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.BAD_REQUEST.value()).build());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -70,6 +75,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponse.builder()
                         .message("You do not have permission to access this resource.")
+                        .status(HttpStatus.FORBIDDEN.value())
                         .build());
     }
 
@@ -77,7 +83,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
         log.warn("Resource not found: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.NOT_FOUND.value()).build());
+    }
+
+    @ExceptionHandler(FileProcessingException.class)
+    public ResponseEntity<ErrorResponse> handleFileProcessingException(FileProcessingException ex) {
+        log.warn("File processing error: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.INTERNAL_SERVER_ERROR.value()).build());
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFileException(InvalidFileException ex) {
+        log.warn("Invalid file: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.BAD_REQUEST.value()).build());
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

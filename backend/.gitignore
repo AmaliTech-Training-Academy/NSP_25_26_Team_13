@@ -1,0 +1,49 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+logs/
+dev/
+.env
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+system.md
+pr.md
+gitmessage.md
+new.md
+frontend.md
+FRONTEND_IMPLEMENTATION_GUIDE.md
+FRONTEND_IMPROVEMENTS.md
+FRONTEND_PR_SUMMARY.md
+README_FRONTEND.md
+PROJECT_STRUCTURE.md
+COMPLETION_REPORT.md
+DOCUMENTATION_INDEX.md
+null

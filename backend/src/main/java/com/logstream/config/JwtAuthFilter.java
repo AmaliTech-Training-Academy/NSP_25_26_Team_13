@@ -23,6 +23,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         this.jwtService = jwtService;
     }
 
+    private static final List<String> PERMIT_ALL_PATHS = List.of(
+            "/api/auth/",
+            "/api/health",
+            "/api/logs",
+            "/api/analytics"
+    );
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return PERMIT_ALL_PATHS.stream().anyMatch(path::startsWith);
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String authorizationHeader = request.getHeader("Authorization");

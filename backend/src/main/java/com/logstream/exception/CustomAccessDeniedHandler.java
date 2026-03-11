@@ -38,6 +38,16 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
         log.warn("Access denied [{}] for user '{}' on '{}': {}",
                 exceptionName, username, request.getRequestURI(), accessDeniedException.getMessage());
 
+        String acceptHeader = request.getHeader("Accept");
+        boolean isHtmlRequest = acceptHeader != null && acceptHeader.contains("text/html");
+
+        if (isHtmlRequest || request.getRequestURI().startsWith("/")) {
+            String message = resolveMessage(accessDeniedException);
+            response.sendRedirect(request.getContextPath() + "/access-denied?message=" + 
+                    java.net.URLEncoder.encode(message, "UTF-8"));
+            return;
+        }
+
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
