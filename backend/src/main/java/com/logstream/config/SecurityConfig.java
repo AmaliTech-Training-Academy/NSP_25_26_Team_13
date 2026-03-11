@@ -41,12 +41,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                        .requestMatchers("/", "/dashboard", "/logs", "/analytics").authenticated()
-                        .requestMatchers("/retention/**", "/logs/import/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
+                        .requestMatchers("/login", "/logout-page", "/logout", "/404", "/access-denied").permitAll()
+                        .requestMatchers("/**").permitAll()
+//                        .anyRequest().authenticated())
+                        .anyRequest().permitAll()
+                )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(sm -> sm
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login?loggedOut=true")
+                        .clearAuthentication(true)
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
+                        .permitAll());
         return http.build();
     }
 

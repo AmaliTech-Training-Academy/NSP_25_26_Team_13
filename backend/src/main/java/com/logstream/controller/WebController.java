@@ -1,14 +1,24 @@
 package com.logstream.controller;
 
+import com.logstream.dto.BatchLogRequest;
+import com.logstream.dto.BatchLogEntryResponse;
+import com.logstream.dto.LogEntryRequest;
 import com.logstream.dto.LogSearchRequest;
 import com.logstream.model.RetentionPolicy;
 import com.logstream.service.AnalyticsService;
 import com.logstream.service.HealthService;
+import com.logstream.service.IngestionService;
 import com.logstream.service.RetentionService;
 import com.logstream.service.SearchService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -26,12 +36,45 @@ public class WebController {
 
     private final AnalyticsService analyticsService;
     private final HealthService healthService;
+    private final IngestionService ingestionService;
     private final RetentionService retentionService;
     private final SearchService searchService;
+
+    @GetMapping("/login")
+    public String loginPage(@RequestParam(required = false) String error, Model model) {
+        model.addAttribute("loginError", error);
+        return "login";
+    }
+
+    @GetMapping("/logout")
+    public String logout(HttpServletRequest request, HttpServletResponse response) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null) {
+            new SecurityContextLogoutHandler().logout(request, response, auth);
+        }
+        return "redirect:/login?loggedOut=true";
+    }
+
+    @GetMapping("/logout-page")
+    public String logoutPage(HttpServletRequest request, HttpServletResponse response) {
+        return logout(request, response);
+    }
+
+    @GetMapping("/404")
+    public String notFound() {
+        return "404";
+    }
+
+    @GetMapping("/access-denied")
+    public String accessDenied(@RequestParam(required = false) String message, Model model) {
+        model.addAttribute("message", message);
+        return "access-denied";
+    }
 
     @GetMapping("/")
     public String dashboard(Model model) {
         model.addAttribute("pageTitle", "Dashboard");
+        model.addAttribute("sidebarCollapsed", false);
         
         var healthDashboard = healthService.getHealthDashboard();
         
@@ -48,7 +91,17 @@ public class WebController {
     @GetMapping("/retention")
     public String retentionPolicies(Model model) {
         model.addAttribute("pageTitle", "Retention Policies");
-        model.addAttribute("policies", retentionService.getPolicies());
+        model.addAttribute("sidebarCollapsed", false);
+        
+        try {
+            model.addAttribute("policies", retentionService.getPolicies());
+            model.addAttribute("services", retentionService.getAllServices());
+        } catch (Exception e) {
+            model.addAttribute("policies", java.util.Collections.emptyList());
+            model.addAttribute("services", java.util.Collections.emptyList());
+            model.addAttribute("error", "Unable to load policies: " + e.getMessage());
+        }
+        
         model.addAttribute("newPolicy", new RetentionPolicy());
         return "retention";
     }
@@ -70,26 +123,40 @@ public class WebController {
         return "redirect:/retention";
     }
 
-    @GetMapping("/retention/edit/{id}")
-    public String editRetentionPolicy(@PathVariable Long id, Model model) {
+    @GetMapping("/retention/edit/{serviceName}")
+    public String editRetentionPolicy(@PathVariable("serviceName") String serviceName, Model model) {
+        RetentionPolicy policy = retentionService.getPolicyByServiceName(serviceName);
+        if (policy == null) {
+            model.addAttribute("error", "Policy not found for service: " + serviceName);
+            model.addAttribute("policies", retentionService.getPolicies());
+            return "retention";
+        }
         model.addAttribute("pageTitle", "Edit Retention Policy");
-        model.addAttribute("policy", retentionService.getPolicies().stream()
-                .filter(p -> p.getId().equals(id))
-                .findFirst()
-                .orElse(null));
+        model.addAttribute("sidebarCollapsed", false);
+        model.addAttribute("policy", policy);
         model.addAttribute("policies", retentionService.getPolicies());
         return "edit-retention";
     }
 
-    @PostMapping("/retention/update/{id}")
-    public String updateRetentionPolicy(@PathVariable Long id, @ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes) {
-        redirectAttributes.addFlashAttribute("error", "Update feature not yet implemented");
+    @PostMapping("/retention/update/{serviceName}")
+    public String updateRetentionPolicy(@PathVariable("serviceName") String serviceName, @ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes) {
+        try {
+            retentionService.updatePolicy(serviceName, policy.getRetentionDays(), policy.isArchiveEnabled());
+            redirectAttributes.addFlashAttribute("success", "Retention policy updated successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Failed to update policy: " + e.getMessage());
+        }
         return "redirect:/retention";
     }
 
-    @GetMapping("/retention/delete/{id}")
-    public String deleteRetentionPolicy(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        redirectAttributes.addFlashAttribute("error", "Delete feature not yet implemented");
+    @GetMapping("/retention/delete/{serviceName}")
+    public String deleteRetentionPolicy(@PathVariable("serviceName") String serviceName, RedirectAttributes redirectAttributes) {
+        try {
+            retentionService.deletePolicy(serviceName);
+            redirectAttributes.addFlashAttribute("success", "Retention policy deleted successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Failed to delete policy: " + e.getMessage());
+        }
         return "redirect:/retention";
     }
 
@@ -98,13 +165,18 @@ public class WebController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) String service,
             @RequestParam(required = false) String level,
-            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
             Model model) {
         model.addAttribute("pageTitle", "Log Management");
+        model.addAttribute("sidebarCollapsed", false);
         
         LogSearchRequest searchRequest = LogSearchRequest.builder()
                 .serviceName(service)
-                .keyword(search)
+                .keyword(keyword)
+                .startTime(startTime)
+                .endTime(endTime)
                 .page(page)
                 .size(20)
                 .build();
@@ -117,11 +189,24 @@ public class WebController {
             }
         }
         
-        var logs = searchService.searchLogs(searchRequest);
-        model.addAttribute("logs", logs);
-        model.addAttribute("currentPage", page);
-        model.addAttribute("totalPages", logs.getTotalPages());
-        model.addAttribute("services", analyticsService.getErrorRatePerService());
+        try {
+            var logs = searchService.searchLogs(searchRequest);
+            model.addAttribute("logs", logs);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("totalPages", logs.getTotalPages());
+        } catch (Exception e) {
+            model.addAttribute("logs", null);
+            model.addAttribute("currentPage", 0);
+            model.addAttribute("totalPages", 0);
+            model.addAttribute("error", "Unable to load logs: " + e.getMessage());
+        }
+        
+        try {
+            model.addAttribute("services", analyticsService.getErrorRatePerService());
+        } catch (Exception e) {
+            model.addAttribute("services", java.util.Collections.emptyList());
+        }
+        
         return "logs";
     }
 
@@ -153,6 +238,7 @@ public class WebController {
     @GetMapping("/logs/import")
     public String importLogsForm(Model model) {
         model.addAttribute("pageTitle", "Import Logs");
+        model.addAttribute("sidebarCollapsed", false);
         return "import-logs";
     }
 
@@ -161,17 +247,38 @@ public class WebController {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
             String line;
             boolean skipHeader = true;
-            int count = 0;
+            var logRequests = new java.util.ArrayList<LogEntryRequest>();
+            
             while ((line = reader.readLine()) != null) {
                 if (skipHeader) {
                     skipHeader = false;
                     continue;
                 }
                 if (!line.trim().isEmpty()) {
-                    count++;
+                    String[] parts = line.split(",", 6);
+                    if (parts.length >= 4) {
+                        LogEntryRequest request = new LogEntryRequest();
+                        request.setServiceName(parts[2].trim());
+                        try {
+                            request.setLevel(com.logstream.model.LogLevel.valueOf(parts[3].trim().toUpperCase()));
+                        } catch (Exception e) {
+                            request.setLevel(com.logstream.model.LogLevel.INFO);
+                        }
+                        request.setMessage(parts[4].trim());
+                        request.setSource(parts.length > 5 ? parts[5].trim() : "csv-import");
+                        logRequests.add(request);
+                    }
                 }
             }
-            redirectAttributes.addFlashAttribute("success", "Parsed " + count + " log entries from CSV (import not yet implemented)");
+            
+            if (!logRequests.isEmpty()) {
+                BatchLogRequest batchRequest = new BatchLogRequest();
+                batchRequest.setLogs(logRequests);
+                BatchLogEntryResponse result = ingestionService.ingestBatch(batchRequest);
+                redirectAttributes.addFlashAttribute("success", "Successfully imported " + result.getCount() + " log entries from CSV");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "No valid log entries found in CSV");
+            }
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Failed to import CSV: " + e.getMessage());
         }
@@ -184,6 +291,7 @@ public class WebController {
             @RequestParam(defaultValue = "hour") String granularity,
             Model model) {
         model.addAttribute("pageTitle", "Analytics");
+        model.addAttribute("sidebarCollapsed", false);
         
         Instant endTime = Instant.now();
         Instant startTime = endTime.minus(7, ChronoUnit.DAYS);

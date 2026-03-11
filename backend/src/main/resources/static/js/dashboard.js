@@ -1,15 +1,47 @@
 const API_URL = '/api/health/dashboard';
 const REFRESH_INTERVAL = 30000;
 
+function getAuthHeaders() {
+    const token = localStorage.getItem('jwt_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+    }
+    return headers;
+}
+
+function isAuthenticated() {
+    return localStorage.getItem('jwt_token') !== null;
+}
+
+function redirectToLogin() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_role');
+    window.location.href = '/login';
+}
+
 async function fetchHealthData() {
+    if (!isAuthenticated()) {
+        redirectToLogin();
+        return;
+    }
+
     try {
-        const response = await fetch(API_URL);
+        const response = await fetch(API_URL, {
+            headers: getAuthHeaders()
+        });
+        
+        if (response.status === 401) {
+            redirectToLogin();
+            return;
+        }
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
         renderDashboard(data.data);
-        updateLastRefreshTime();
         hideError();
     } catch (error) {
         console.error('Error fetching health data:', error);
@@ -60,7 +92,7 @@ function createServiceRow(service) {
             <div class="text-sm text-gray-600">${lastLogTime}</div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm">
-            <a href="/api/analytics/error-rate?service=${encodeURIComponent(service.service)}" 
+            <a href="/analytics?service=${encodeURIComponent(service.service)}" 
                class="text-blue-600 hover:text-blue-900 mr-4">
                 <i class="fas fa-chart-bar"></i> Analytics
             </a>
@@ -112,12 +144,6 @@ function updateStatistics(services) {
     document.getElementById('unhealthyCount').textContent = unhealthy;
 }
 
-function updateLastRefreshTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString();
-    document.getElementById('lastUpdated').textContent = timeString;
-}
-
 function formatTime(isoString) {
     if (!isoString) return 'N/A';
     const date = new Date(isoString);
@@ -141,7 +167,11 @@ function hideError() {
     document.getElementById('errorAlert').classList.add('hidden');
 }
 
-document.getElementById('refreshBtn').addEventListener('click', fetchHealthData);
+document.getElementById('refreshBtn')?.addEventListener('click', fetchHealthData);
 
-fetchHealthData();
-setInterval(fetchHealthData, REFRESH_INTERVAL);
+if (isAuthenticated()) {
+    fetchHealthData();
+    setInterval(fetchHealthData, REFRESH_INTERVAL);
+} else {
+    redirectToLogin();
+}

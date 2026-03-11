@@ -4,16 +4,15 @@
     <title>Log Management - LogStream</title>
 </head>
 <body>
-    <div th:replace="layout :: mobile-header"></div>
-    <div th:replace="layout :: sidebar"></div>
-    <div th:replace="layout :: header"></div>
-    <div th:replace="layout :: alerts"></div>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
 
     <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
         <!-- Filters -->
         <div class="bg-white rounded-lg shadow p-6 mb-6">
             <h2 class="text-lg font-bold text-gray-900 mb-4">Filters</h2>
-            <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Service</label>
                     <select name="service" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
@@ -32,8 +31,16 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Search</label>
-                    <input type="text" name="search" placeholder="Search message..." class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <label class="block text-sm font-medium text-gray-700">Keyword</label>
+                    <input type="text" name="keyword" th:value="${param.keyword}" placeholder="Search message..." class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Start Time</label>
+                    <input type="text" name="startTime" th:value="${param.startTime}" placeholder="2024-01-01T00:00:00Z" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">End Time</label>
+                    <input type="text" name="endTime" th:value="${param.endTime}" placeholder="2024-01-02T00:00:00Z" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 <div class="flex items-end space-x-2">
                     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
@@ -88,10 +95,14 @@
                     Page <span th:text="${currentPage + 1}"></span> of <span th:text="${totalPages}"></span>
                 </div>
                 <div class="space-x-2">
-                    <a th:if="${currentPage > 0}" th:href="@{/logs(page=${currentPage - 1})}" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
+                    <a th:if="${currentPage > 0}"
+                       th:href="@{/logs(page=${currentPage - 1},service=${param.service},level=${param.level},keyword=${param.keyword},startTime=${param.startTime},endTime=${param.endTime})}"
+                       class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
                         Previous
                     </a>
-                    <a th:if="${currentPage < totalPages - 1}" th:href="@{/logs(page=${currentPage + 1})}" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
+                    <a th:if="${currentPage < totalPages - 1}"
+                       th:href="@{/logs(page=${currentPage + 1},service=${param.service},level=${param.level},keyword=${param.keyword},startTime=${param.startTime},endTime=${param.endTime})}"
+                       class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">
                         Next
                     </a>
                 </div>

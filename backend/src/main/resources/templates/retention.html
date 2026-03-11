@@ -4,10 +4,9 @@
     <title>Retention Policies - LogStream</title>
 </head>
 <body>
-    <div th:replace="layout :: mobile-header"></div>
-    <div th:replace="layout :: sidebar"></div>
-    <div th:replace="layout :: header"></div>
-    <div th:replace="layout :: alerts"></div>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
 
     <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -18,8 +17,11 @@
                     <form th:action="@{/retention/add}" method="post" th:object="${newPolicy}" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Service Name</label>
-                            <input type="text" th:field="*{serviceName}" required
-                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                            <select th:field="*{serviceName}" required
+                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                                <option value="">Select a service</option>
+                                <option th:each="service : ${services}" th:value="${service}" th:text="${service}"></option>
+                            </select>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Retention Days</label>
@@ -69,10 +71,10 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-sm space-x-2">
-                                        <a th:href="@{/retention/edit/{id}(id=${policy.id})}" class="text-blue-600 hover:text-blue-900">
+                                        <a th:href="@{/retention/edit/{serviceName}(serviceName=${policy.serviceName})}" class="text-blue-600 hover:text-blue-900">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a th:href="@{/retention/delete/{id}(id=${policy.id})}" class="text-red-600 hover:text-red-900"
+                                        <a th:href="@{/retention/delete/{serviceName}(serviceName=${policy.serviceName})}" class="text-red-600 hover:text-red-900"
                                            onclick="return confirm('Are you sure?')">
                                             <i class="fas fa-trash"></i>
                                         </a>

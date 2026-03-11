@@ -1,50 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LogStream - Service Health Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" th:href="@{/css/dashboard.css}">
-    <style>
-        .stat-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
-        }
-    </style>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{layout :: head}">
+    <title>LogStream - Dashboard</title>
 </head>
 <body class="bg-gray-50">
-    <div class="min-h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-stream text-white text-xl"></i>
-                            </div>
-                            <div>
-                                <h1 class="text-2xl font-bold text-gray-900">LogStream</h1>
-                                <p class="text-sm text-gray-500">Service Health Dashboard</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm text-gray-500">Last Updated: <span id="lastUpdated" class="font-medium text-gray-700">--:--:--</span></p>
-                        <button id="refreshBtn" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
-                            <i class="fas fa-sync-alt mr-2"></i>Refresh
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </header>
+    <!-- Sidebar -->
+    <div th:replace="~{sidebar :: sidebar}"></div>
 
-        <!-- Main Content -->
+    <!-- Main Content -->
+    <div class="md:ml-64 transition-all duration-300">
+        <!-- Header -->
+        <div th:replace="~{layout :: header}"></div>
+
+        <!-- Dashboard Content -->
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <!-- Statistics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -140,16 +108,6 @@
         </main>
     </div>
 
-    <script th:inline="javascript">
-        // Update timestamp
-        function updateTime() {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString();
-            document.getElementById('lastUpdated').textContent = timeStr;
-        }
-        updateTime();
-        setInterval(updateTime, 1000);
-    </script>
     <script src="/js/dashboard.js"></script>
 </body>
 </html>

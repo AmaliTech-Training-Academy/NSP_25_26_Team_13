@@ -28,7 +28,6 @@ public class LogEntryRequest {
     @Pattern(regexp = "^.{1,2000}$", message = "Message must be between 1 and 2000 characters")
     private String message;
 
-    @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Metadata keys can only contain letters, numbers, hyphens, and underscores")
     private Map<String, String> metadata;
 
     @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Source can only contain letters, numbers, hyphens, and underscores")

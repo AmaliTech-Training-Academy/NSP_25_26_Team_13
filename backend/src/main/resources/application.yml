@@ -5,7 +5,7 @@ spring:
         password: ${SPRING_DATASOURCE_PASSWORD:logstream123}
     jpa:
         hibernate:
-            ddl-auto: update
+            ddl-auto: validate
         show-sql: false
         properties:
             hibernate:

@@ -47,7 +47,7 @@ class SearchServiceTest {
     @Test
     void searchLogs_noFilters_returnsAllResults() {
         Page<LogEntry> page = new PageImpl<>(List.of(sampleEntry()));
-        when(logEntryRepository.searchWithFilters(isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+        when(logEntryRepository.findByTimestampBetween(any(Instant.class), any(Instant.class), any(PageRequest.class)))
                 .thenReturn(page);
 
         LogSearchRequest request = new LogSearchRequest();
@@ -60,18 +60,21 @@ class SearchServiceTest {
     @Test
     void searchLogs_withServiceAndLevel_passesFiltersToRepository() {
         Page<LogEntry> page = new PageImpl<>(List.of(sampleEntry()));
-        when(logEntryRepository.searchWithFilters(eq("auth-service"), eq(LogLevel.ERROR), isNull(), isNull(), isNull(), any()))
+        when(logEntryRepository.findByServiceNameAndLevelAndTimestampBetweenAndMessageContainingIgnoreCase(
+                eq("auth-service"), eq(LogLevel.ERROR), any(Instant.class), any(Instant.class), anyString(), any(PageRequest.class)))
                 .thenReturn(page);
 
         LogSearchRequest request = LogSearchRequest.builder()
                 .serviceName("auth-service")
                 .level(LogLevel.ERROR)
+                .keyword("timeout")
                 .size(20)
                 .build();
         Page<LogEntryResponse> result = searchService.searchLogs(request);
 
         assertThat(result.getContent()).hasSize(1);
-        verify(logEntryRepository).searchWithFilters(eq("auth-service"), eq(LogLevel.ERROR), isNull(), isNull(), isNull(), any());
+        verify(logEntryRepository).findByServiceNameAndLevelAndTimestampBetweenAndMessageContainingIgnoreCase(
+                eq("auth-service"), eq(LogLevel.ERROR), any(Instant.class), any(Instant.class), eq("timeout"), any(PageRequest.class));
     }
 
     @Test
@@ -79,7 +82,7 @@ class SearchServiceTest {
         String start = "2025-01-01T00:00:00Z";
         String end = "2025-12-31T23:59:59Z";
         Page<LogEntry> page = new PageImpl<>(List.of(sampleEntry()));
-        when(logEntryRepository.searchWithFilters(isNull(), isNull(), eq(Instant.parse(start)), eq(Instant.parse(end)), isNull(), any()))
+        when(logEntryRepository.findByTimestampBetween(eq(Instant.parse(start)), eq(Instant.parse(end)), any(PageRequest.class)))
                 .thenReturn(page);
 
         LogSearchRequest request = LogSearchRequest.builder()
@@ -95,24 +98,26 @@ class SearchServiceTest {
     @Test
     void searchLogs_withKeyword_passesKeywordToRepository() {
         Page<LogEntry> page = new PageImpl<>(List.of(sampleEntry()));
-        when(logEntryRepository.searchWithFilters(isNull(), isNull(), isNull(), isNull(), eq("timeout"), any()))
+        when(logEntryRepository.findByTimestampBetweenAndMessageContainingIgnoreCase(
+                any(Instant.class), any(Instant.class), eq("timeout"), any(PageRequest.class)))
                 .thenReturn(page);
 
         LogSearchRequest request = LogSearchRequest.builder().keyword("timeout").size(20).build();
         searchService.searchLogs(request);
 
-        verify(logEntryRepository).searchWithFilters(isNull(), isNull(), isNull(), isNull(), eq("timeout"), any());
+        verify(logEntryRepository).findByTimestampBetweenAndMessageContainingIgnoreCase(
+                any(Instant.class), any(Instant.class), eq("timeout"), any(PageRequest.class));
     }
 
     @Test
     void searchLogs_paginationIsApplied() {
-        when(logEntryRepository.searchWithFilters(any(), any(), any(), any(), any(), eq(PageRequest.of(2, 10))))
+        when(logEntryRepository.findByTimestampBetween(any(Instant.class), any(Instant.class), eq(PageRequest.of(2, 10))))
                 .thenReturn(Page.empty());
 
         LogSearchRequest request = LogSearchRequest.builder().page(2).size(10).build();
         searchService.searchLogs(request);
 
-        verify(logEntryRepository).searchWithFilters(any(), any(), any(), any(), any(), eq(PageRequest.of(2, 10)));
+        verify(logEntryRepository).findByTimestampBetween(any(Instant.class), any(Instant.class), eq(PageRequest.of(2, 10)));
     }
 
     @Test
