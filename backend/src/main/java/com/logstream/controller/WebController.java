@@ -124,16 +124,22 @@ public class WebController {
     }
 
     @GetMapping("/retention/edit/{serviceName}")
-    public String editRetentionPolicy(@PathVariable String serviceName, Model model) {
+    public String editRetentionPolicy(@PathVariable("serviceName") String serviceName, Model model) {
+        RetentionPolicy policy = retentionService.getPolicyByServiceName(serviceName);
+        if (policy == null) {
+            model.addAttribute("error", "Policy not found for service: " + serviceName);
+            model.addAttribute("policies", retentionService.getPolicies());
+            return "retention";
+        }
         model.addAttribute("pageTitle", "Edit Retention Policy");
         model.addAttribute("sidebarCollapsed", false);
-        model.addAttribute("policy", retentionService.getPolicyByServiceName(serviceName));
+        model.addAttribute("policy", policy);
         model.addAttribute("policies", retentionService.getPolicies());
         return "edit-retention";
     }
 
     @PostMapping("/retention/update/{serviceName}")
-    public String updateRetentionPolicy(@PathVariable String serviceName, @ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes) {
+    public String updateRetentionPolicy(@PathVariable("serviceName") String serviceName, @ModelAttribute RetentionPolicy policy, RedirectAttributes redirectAttributes) {
         try {
             retentionService.updatePolicy(serviceName, policy.getRetentionDays(), policy.isArchiveEnabled());
             redirectAttributes.addFlashAttribute("success", "Retention policy updated successfully");
@@ -144,7 +150,7 @@ public class WebController {
     }
 
     @GetMapping("/retention/delete/{serviceName}")
-    public String deleteRetentionPolicy(@PathVariable String serviceName, RedirectAttributes redirectAttributes) {
+    public String deleteRetentionPolicy(@PathVariable("serviceName") String serviceName, RedirectAttributes redirectAttributes) {
         try {
             retentionService.deletePolicy(serviceName);
             redirectAttributes.addFlashAttribute("success", "Retention policy deleted successfully");
