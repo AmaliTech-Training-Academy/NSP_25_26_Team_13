@@ -5,14 +5,19 @@ import com.logstream.dto.*;
 import com.logstream.model.User;
 import com.logstream.service.AnalyticsService;
 import com.logstream.service.IngestionService;
+import com.logstream.service.LogImportService;
 import com.logstream.service.SearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
 
 import java.util.List;
 
@@ -23,6 +28,7 @@ public class LogController {
     private final IngestionService ingestionService;
     private final SearchService searchService;
     private final AnalyticsService analyticsService;
+    private final LogImportService logImportService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<LogEntryResponse>> ingestLog(
@@ -34,10 +40,13 @@ public class LogController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<LogEntryResponse>>> getLogs() {
-        List<LogEntryResponse> logs = ingestionService.getLogs();
-        ApiResponse<List<LogEntryResponse>> apiResponse = ApiResponse.success("Logs retrieved successfully", logs);
-        return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    public ResponseEntity<ApiResponse<Page<LogEntryResponse>>> getLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Page<LogEntryResponse> logs = ingestionService.getLogs(page, size);
+        ApiResponse<Page<LogEntryResponse>> apiResponse = ApiResponse.success("Logs retrieved successfully", logs);
+        return ResponseEntity.ok(apiResponse);
     }
 
     @PostMapping("/batch")
@@ -47,6 +56,14 @@ public class LogController {
         BatchLogEntryResponse results = ingestionService.ingestBatch(request);
         ApiResponse<BatchLogEntryResponse> apiResponse = ApiResponse.success("Batch log ingestion completed", results);
         return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
+    }
+
+    @PostMapping(path = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> importLogs(
+            @RequestParam("file") MultipartFile file
+    ) {
+        logImportService.initiateImport(file);
+        return ResponseEntity.ok(Map.of("message", "Log import successful"));
     }
 
     @PostMapping("/search")

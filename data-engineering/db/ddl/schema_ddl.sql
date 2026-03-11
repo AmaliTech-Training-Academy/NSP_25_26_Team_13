@@ -64,6 +64,23 @@ CREATE TABLE retention_policies (
     UNIQUE (service_name, log_level) -- prevent duplicate policies
 );
 
+-- 4. Archived Logs (same schema as log_entries, non-partitioned)
+-- Expired logs are moved here before deletion when archival is enabled.
+CREATE TABLE logs_archive (
+    id UUID DEFAULT gen_random_uuid(),
+    timestamp TIMESTAMPTZ NOT NULL,
+    level VARCHAR(10) NOT NULL,
+    source VARCHAR(100),
+    message TEXT NOT NULL,
+    service_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    archived_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (id)
+);
+
+-- Indexes for historical archive queries
+CREATE INDEX idx_archive_service_ts ON logs_archive (service_name, timestamp DESC);
+CREATE INDEX idx_archive_level ON logs_archive (level, timestamp DESC);
 
 
 -- Indexing for authentication

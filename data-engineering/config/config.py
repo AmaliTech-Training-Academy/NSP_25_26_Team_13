@@ -6,27 +6,24 @@ from pathlib import Path
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path)
 
-# Fetch environment variables correctly
-""" DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),  # use DB_HOST
-    "port": os.getenv("DB_PORT", "5432"),
-    "database": os.getenv("DB_NAME", ""),
-    "user": os.getenv("DB_USERNAME", ""),
-    "password": os.getenv("DB_PASSWORD", ""),
-}
+# ── Archival Strategy ─────────────────────────────────────────────────────────
+# Controls whether expired logs are moved to logs_archive table before deletion.
+# Default: disabled (for MVP). Set to "true" in .env to enable.
+ARCHIVAL_ENABLED = os.getenv("ARCHIVAL_ENABLED", "false").lower() == "true"
 
-# Ensure credentials exist
-if not DB_CONFIG["user"] or not DB_CONFIG["password"]:
-    raise EnvironmentError(
-        "Database user or password not set. Please set DB_USERNAME and DB_PASSWORD in .env"
-    )
+# Fetch environment variables
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", "5432"),
+    "database": os.getenv("DB_NAME", "logstream"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", "postgres"),
+}
 
 DATABASE_URL = (
     f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
     f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-) """
-
-
+)
 
 
 

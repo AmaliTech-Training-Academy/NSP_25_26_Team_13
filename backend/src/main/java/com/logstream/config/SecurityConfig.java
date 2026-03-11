@@ -38,8 +38,13 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/analytics/**").permitAll()
+                        .requestMatchers("/api/retention/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/", "/dashboard", "/logs", "/analytics").permitAll()
+                        .requestMatchers("/retention/**", "/logs/import/**").hasRole("ADMIN")
+                        .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(sm -> sm
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
