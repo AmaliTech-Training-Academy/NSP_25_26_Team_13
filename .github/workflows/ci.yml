@@ -325,3 +325,121 @@ jobs:
         run: |
           docker system prune -af --volumes
           rm -rf /tmp/.buildx-cache
+
+  # ─────────────────────────────────────────────────────────
+  # JOB 6: QA — API Integration Tests (RestAssured / TestNG)
+  # Spins up a real backend + postgres, then hits the live API
+  # ─────────────────────────────────────────────────────────
+  qa-api-tests:
+    name: QA — API Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [ docker ]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+          POSTGRES_USER: ${{ secrets.DB_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+
+      - name: Run schema DDL on PostgreSQL
+        run: |
+          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql \
+            -h localhost -U ${{ secrets.DB_USERNAME }} -d ${{ secrets.DB_NAME }} \
+            -f "$GITHUB_WORKSPACE/data-engineering/db/ddl/schema_ddl.sql"
+
+      - name: Build backend JAR
+        working-directory: backend
+        run: mvn clean package -DskipTests -B -q
+
+      - name: Start backend in background
+        env:
+          SPRING_PROFILES_ACTIVE: dev
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/${{ secrets.DB_NAME }}
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.DB_USERNAME }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SERVER_PORT: "8080"
+        run: |
+          nohup java -jar backend/target/*.jar \
+            --spring.datasource.url=jdbc:postgresql://localhost:5432/${{ secrets.DB_NAME }} \
+            --spring.datasource.username=${{ secrets.DB_USERNAME }} \
+            --spring.datasource.password=${{ secrets.DB_PASSWORD }} \
+            --jwt.secret=${{ secrets.JWT_SECRET }} \
+            --server.port=8080 \
+            > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+          echo "Backend started with PID $(cat /tmp/backend.pid)"
+
+      - name: Wait for backend to be healthy
+        run: |
+          echo "Waiting for backend /actuator/health..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
+              echo "Backend is up (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i/30 — not ready yet, retrying in 5s..."
+            sleep 5
+          done
+          echo "Backend failed to start. Dumping logs:"
+          cat /tmp/backend.log
+          exit 1
+
+      - name: Run QA API tests
+        working-directory: qa/api-tests
+        env:
+          API_BASE_URL: http://localhost:8080
+        run: mvn test -B
+
+      - name: Upload QA test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-api-test-results
+          path: qa/api-tests/target/surefire-reports/
+          retention-days: 14
+
+      - name: Dump backend logs on failure
+        if: failure()
+        run: cat /tmp/backend.log || true
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill $(cat /tmp/backend.pid) || true
+          fi
