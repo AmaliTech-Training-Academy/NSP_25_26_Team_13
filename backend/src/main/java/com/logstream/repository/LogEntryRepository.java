@@ -79,7 +79,7 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
            "(:level IS NULL OR l.level = :level) AND " +
            "(:start IS NULL OR l.timestamp >= :start) AND " +
            "(:end IS NULL OR l.timestamp <= :end) AND " +
-           "(:keyword IS NULL OR LOWER(l.message) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "(:keyword IS NULL OR LOWER(CAST(l.message AS string)) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<LogEntry> searchWithFilters(@Param("serviceName") String serviceName,
                                      @Param("level") LogLevel level,
                                      @Param("start") Instant start,
