@@ -317,3 +317,48 @@ FROM error_logs
 WHERE prev_error_ts IS NOT NULL
 GROUP BY service_name
 ORDER BY avg_minutes_between_errors ASC;
+
+
+-- Total Events (last 24 hours)
+CREATE OR REPLACE VIEW vw_total_events_24h AS
+SELECT
+    COUNT(*) AS total_events
+FROM log_entries
+WHERE timestamp >= NOW() - INTERVAL '24 hours';
+
+
+-- Total Warnings (last 24 hours)
+CREATE OR REPLACE VIEW vw_total_warnings_24h AS
+SELECT
+    COUNT(*) AS total_warnings
+FROM log_entries
+WHERE level = 'WARN'
+  AND timestamp >= NOW() - INTERVAL '24 hours';
+
+
+-- Total Errors (last 24 hours)
+CREATE OR REPLACE VIEW vw_total_errors_24h AS
+SELECT
+    COUNT(*) AS total_errors
+FROM log_entries
+WHERE level = 'ERROR'
+  AND timestamp >= NOW() - INTERVAL '24 hours';
+
+
+-- Total Services (currently reporting)
+CREATE OR REPLACE VIEW vw_total_services AS
+SELECT
+    COUNT(DISTINCT service_name) AS total_services
+FROM log_entries;
+
+
+-- Overall Error Rate (last 24 hours)
+CREATE OR REPLACE VIEW vw_overall_error_rate_24h AS
+SELECT
+    ROUND(
+        COUNT(*) FILTER (WHERE level = 'ERROR') * 100.0
+        / NULLIF(COUNT(*), 0),
+        2
+    ) AS error_rate_percent
+FROM log_entries
+WHERE timestamp >= NOW() - INTERVAL '24 hours';
