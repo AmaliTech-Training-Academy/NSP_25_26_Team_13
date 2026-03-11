@@ -7,6 +7,9 @@ printenv | grep -v "no_proxy" >> /etc/environment
 # Apply crontab
 crontab /app/crontab
 
-# Start cron daemon in the foreground
+# Start cron daemon in the background
 echo "Starting cron daemon (LogStream ETL)..."
-exec cron -f
+cron
+
+# Execute the command passed to the container (like the compose loop or CI checks)
+exec "$@"
