@@ -71,7 +71,6 @@ public class FileParsingService {
                 .level(LogLevel.valueOf(entryCSV.getLevel().toUpperCase()))
                 .message(entryCSV.getMessage())
                 .source(entryCSV.getSource())
-                .metadata(entryCSV.getMetadata())
                 .timestamp(Instant.now())
                 .createdAt(entryCSV.getCreatedAt() != null
                         ? LocalDateTime.parse(entryCSV.getCreatedAt()).toInstant(ZoneOffset.UTC)
