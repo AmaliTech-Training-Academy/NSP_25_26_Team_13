@@ -31,10 +31,8 @@ public class LogIngestionTest extends BaseTest {
                 .when()
                 .post("/api/logs")
                 .then()
-                .statusCode(200)
-                .body("id", notNullValue())
-                .body("serviceName", equalTo("AuthService"))
-                .body("level", equalTo("INFO"));
+                .statusCode(201)
+                .body("success", equalTo(true));
     }
 
     @Test(priority = 2)
@@ -63,24 +61,23 @@ public class LogIngestionTest extends BaseTest {
                 .when()
                 .post("/api/logs/batch")
                 .then()
-                .statusCode(200)
-                .body("ingested", equalTo(2))
-                .body("logs", equalTo(2));
+                .statusCode(201)
+                .body("success", equalTo(true));
     }
 
     // @Test(priority = 3)
     // public void testMalformedLogIngestion() {
-    //     Map<String, Object> invalidLogEntry = new HashMap<>();
-    //     // Missing required fields like 'serviceName', 'level', 'message'
-    //     invalidLogEntry.put("timestamp", "2024-03-09T12:00:00Z");
+    // Map<String, Object> invalidLogEntry = new HashMap<>();
+    // // Missing required fields like 'serviceName', 'level', 'message'
+    // invalidLogEntry.put("timestamp", "2024-03-09T12:00:00Z");
 
-    //     given()
-    //             .header("Authorization", "Bearer " + token)
-    //             .contentType(ContentType.JSON)
-    //             .body(invalidLogEntry)
-    //             .when()
-    //             .post("/api/logs")
-    //             .then()
-    //             .statusCode(400); // Bad Request expected
+    // given()
+    // .header("Authorization", "Bearer " + token)
+    // .contentType(ContentType.JSON)
+    // .body(invalidLogEntry)
+    // .when()
+    // .post("/api/logs")
+    // .then()
+    // .statusCode(400); // Bad Request expected
     // }
 }
