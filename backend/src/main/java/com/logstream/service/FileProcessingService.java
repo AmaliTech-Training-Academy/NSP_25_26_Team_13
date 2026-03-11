@@ -100,7 +100,6 @@ public class FileProcessingService {
                 .level(LogLevel.valueOf(request.getLevel().toUpperCase()))
                 .message(request.getMessage())
                 .source(request.getSource())
-                .traceId(request.getTraceId())
                 .timestamp(Instant.now())
                 .createdAt(request.getCreatedAt() != null
                         ? LocalDateTime.parse(request.getCreatedAt()).toInstant(ZoneOffset.UTC)

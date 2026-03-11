@@ -35,8 +35,6 @@ class FileParsingServiceTest {
         assertThat(result.getMessage()).isEqualTo("Hello world");
         assertThat(result.getSource()).isEqualTo("com.example.Main");
         assertThat(result.getTimestamp()).isNotNull();
-        // traceId and metadata are not part of the CSV column format
-        assertThat(result.getTraceId()).isNull();
     }
 
     @Test
@@ -47,7 +45,6 @@ class FileParsingServiceTest {
         assertThat(result.getServiceName()).isEqualTo("auth-service");
         assertThat(result.getLevel()).isEqualTo(LogLevel.WARN);
         assertThat(result.getMessage()).isEqualTo("Low memory");
-        assertThat(result.getTraceId()).isNull();
     }
 
     @Test
@@ -115,7 +112,6 @@ class FileParsingServiceTest {
         LogEntry result = service.parseCSVLine(",,INFO,,,svc,2024-01-01T00:00:00");
 
         assertThat(result.getSource()).isEmpty();
-        assertThat(result.getTraceId()).isNull();
     }
 
     @Test
@@ -123,16 +119,14 @@ class FileParsingServiceTest {
         LogEntry result = service.parseCSVLine(",,INFO,com.example.Foo,msg,svc,2024-01-01T00:00:00");
 
         assertThat(result.getSource()).isEqualTo("com.example.Foo");
-        assertThat(result.getTraceId()).isNull();
     }
 
     @Test
-    void parseCSVLine_fiveColumns_sourceAndTraceIdPopulated() {
+    void parseCSVLine_fiveColumns_sourcePopulated() {
         // traceId is not a column in the CSV format; always null
         LogEntry result = service.parseCSVLine(",,INFO,src,msg,svc,2024-01-01T00:00:00");
 
         assertThat(result.getSource()).isEqualTo("src");
-        assertThat(result.getTraceId()).isNull();
     }
 
     @Test

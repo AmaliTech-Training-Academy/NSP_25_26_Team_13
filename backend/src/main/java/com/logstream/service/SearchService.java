@@ -73,7 +73,7 @@ public class SearchService {
         return LogEntryResponse.builder()
                 .id(e.getId()).serviceName(e.getServiceName()).timestamp(e.getTimestamp())
                 .level(e.getLevel()).message(e.getMessage()).metadata(null)
-                .source(e.getSource()).traceId(e.getTraceId()).createdAt(e.getCreatedAt())
+                .source(e.getSource()).traceId(null).createdAt(e.getCreatedAt())
                 .build();
     }
 }

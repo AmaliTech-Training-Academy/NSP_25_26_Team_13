@@ -51,7 +51,6 @@ class IngestionServiceTests {
                 .level(LogLevel.INFO)
                 .message("User logged in")
                 .source("com.example.Auth")
-                .traceId("trace-123")
                 .timestamp(Instant.now())
                 .createdAt(Instant.now())
                 .build();
@@ -70,7 +69,6 @@ class IngestionServiceTests {
         assertThat(response.getLevel()).isEqualTo(savedEntry.getLevel());
         assertThat(response.getMessage()).isEqualTo(savedEntry.getMessage());
         assertThat(response.getSource()).isEqualTo(savedEntry.getSource());
-        assertThat(response.getTraceId()).isEqualTo(savedEntry.getTraceId());
     }
 
     @Test
@@ -201,7 +199,7 @@ class IngestionServiceTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "DEBUG", "INFO", "WARN", "ERROR" })
+    @ValueSource(strings = {"DEBUG", "INFO", "WARN", "ERROR"})
     void ingestLog_allValidLevels_noExceptionThrown(String level) {
         LogEntryRequest request = buildRequest("svc", level, "msg", null, null);
         when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
