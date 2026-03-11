@@ -27,7 +27,7 @@ public class IngestionService {
     private final ObjectMapper objectMapper;
 
     public Page<LogEntryResponse> getLogs(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, Math.min(size, 50));
         return logEntryRepository.findAll(pageable).map(this::mapToResponse);
     }
 
