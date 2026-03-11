@@ -24,6 +24,12 @@ spring:
         prefix: classpath:/templates/
         suffix: .html
 
+logging:
+    level:
+        org:
+            springframework:
+                security: DEBUG
+
 jwt:
     secret: ${JWT_SECRET:logstream-secret-key-amalitech-2024-secure}
     expiration: 86400000

@@ -1,7 +1,10 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# Load .env file
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(env_path)
 
 # ── Archival Strategy ─────────────────────────────────────────────────────────
 # Controls whether expired logs are moved to logs_archive table before deletion.

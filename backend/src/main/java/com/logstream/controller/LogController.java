@@ -19,6 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/logs")
 @RequiredArgsConstructor
