@@ -9,14 +9,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies for Postgres and healthchecks
+# Install system dependencies for Postgres, healthchecks, and cron
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     gcc \
     curl \
+    cron \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Security: Create a non-privileged user
+# Security: Create a non-privileged user and group
 RUN groupadd -r de_user && useradd -r -g de_user de_user
 
 # Install Python dependencies
@@ -24,19 +26,20 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Copy source code with correct ownership
-COPY --chown=de_user:de_user . .
+# Copy source code
+COPY . .
 
-# Ensure the data and archives directories exist and are owned by de_user
-RUN mkdir -p /app/data /app/archives && chown -R de_user:de_user /app/data /app/archives
+# Prepare directories and fix line endings for entrypoint scripts (CRLF to LF)
+RUN mkdir -p /app/data /app/archives /app/logs && \
+    chmod +x /app/entrypoint.sh && \
+    sed -i 's/\r$//' /app/entrypoint.sh && \
+    sed -i 's/\r$//' /app/crontab
 
-# Switch to non-root user
-USER de_user
+# Note: We do NOT switch to USER de_user here because the cron daemon 
+# needs root privileges to start. The entrypoint.sh handles initialization.
 
 # Healthcheck: Verify psycopg2 (DB driver) is importable
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD python -c "import psycopg2; print('Check passed')" || exit 1
 
-# Default: run the ETL pipeline once.
-# docker-compose overrides this with a periodic loop.
-CMD ["python", "scripts/etl_pipeline.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]
