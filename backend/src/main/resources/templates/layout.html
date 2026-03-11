@@ -26,6 +26,16 @@
             background: linear-gradient(90deg, var(--primary) 0%, transparent 100%);
             border-left: 3px solid #60a5fa;
         }
+        .sidebar-collapsed .sidebar-link span,
+        .sidebar-collapsed .nav-text {
+            display: none;
+        }
+        .w-16 {
+            width: 4rem;
+        }
+        .w-64 {
+            width: 16rem;
+        }
         .card-hover {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
@@ -55,7 +65,7 @@
     </div>
 
     <!-- Sidebar -->
-    <div th:fragment="sidebar" id="sidebar" class="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white flex-col z-50">
+    <div th:fragment="sidebar" id="sidebar" class="flex md:flex fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white flex-col z-50 transition-all duration-300">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -69,19 +79,19 @@
         </div>
         <nav class="flex-1 p-4 space-y-1">
             <a href="/" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" 
-               th:classappend="${#httpServletRequest.requestURI == '/' ? 'active' : ''}">
+               data-page="/">
                 <i class="fas fa-home w-6"></i>Dashboard
             </a>
             <a href="/logs" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               th:classappend="${#httpServletRequest.requestURI == '/logs' ? 'active' : ''}">
+               data-page="/logs">
                 <i class="fas fa-list w-6"></i>Logs
             </a>
             <a href="/analytics" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               th:classappend="${#httpServletRequest.requestURI == '/analytics' ? 'active' : ''}">
+               data-page="/analytics">
                 <i class="fas fa-chart-bar w-6"></i>Analytics
             </a>
             <a href="/retention" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               th:classappend="${#httpServletRequest.requestURI == '/retention' ? 'active' : ''}">
+               data-page="/retention">
                 <i class="fas fa-cog w-6"></i>Retention Policies
             </a>
         </nav>
@@ -105,10 +115,6 @@
                     <p class="text-sm text-gray-500 mt-1">Manage your logs and analytics</p>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div class="hidden sm:flex items-center text-sm text-gray-500">
-                        <i class="far fa-clock mr-2"></i>
-                        <span id="lastUpdated">--:--:--</span>
-                    </div>
                     <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
                         <i class="fas fa-sync-alt mr-2"></i>Refresh
                     </button>
@@ -134,10 +140,24 @@
     </div>
 
     <script th:inline="javascript">
-        // Mobile menu toggle
+        function isAuthenticated() {
+            return localStorage.getItem('jwt_token') !== null;
+        }
+
+        function redirectToLogin() {
+            window.location.href = '/login';
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/login' && currentPath !== '/logout' && !isAuthenticated()) {
+                redirectToLogin();
+                return;
+            }
+
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
             const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
             
             if (mobileMenuBtn && sidebar) {
                 mobileMenuBtn.addEventListener('click', function() {
@@ -148,15 +168,36 @@
                 });
             }
 
-            // Update timestamp
-            const updateTime = function() {
-                const now = new Date();
-                const timeStr = now.toLocaleTimeString();
-                const elements = document.querySelectorAll('#lastUpdated');
-                elements.forEach(el => el.textContent = timeStr);
-            };
-            updateTime();
-            setInterval(updateTime, 1000);
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    const isCollapsed = sidebar.classList.contains('w-16');
+                    if (isCollapsed) {
+                        sidebar.classList.remove('w-16');
+                        sidebar.classList.add('w-64');
+                        localStorage.setItem('sidebarCollapsed', 'false');
+                    } else {
+                        sidebar.classList.remove('w-64');
+                        sidebar.classList.add('w-16');
+                        localStorage.setItem('sidebarCollapsed', 'true');
+                    }
+                });
+            }
+
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true' && sidebar) {
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-16');
+            }
+
+            // Set active link
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                const page = link.getAttribute('data-page');
+                if (page && (currentPath === page || (page === '/' && currentPath === ''))) {
+                    link.classList.add('active');
+                }
+            });
+
         });
     </script>
 </body>

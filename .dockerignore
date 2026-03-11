@@ -1,0 +1,18 @@
+# Docker Ignore File
+.git
+.idea
+target/
+*.jar
+*.class
+*.log
+venv/
+__pycache__/
+node_modules/
+.env
+data/
+archives/
+logs/
+bin/
+obj/
+*.tmp
+temp/

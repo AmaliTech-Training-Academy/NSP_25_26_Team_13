@@ -72,21 +72,42 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
             @Param("start") Instant start,
             @Param("endTime") Instant end);
 
-   @Query("SELECT l.serviceName, MAX(l.timestamp) FROM LogEntry l GROUP BY l.serviceName")
+    @Query("SELECT l.serviceName, MAX(l.timestamp) FROM LogEntry l GROUP BY l.serviceName")
     List<Object[]> findLastLogTimestampByService();
 
-    @Query("SELECT l FROM LogEntry l WHERE " +
-           "(:serviceName IS NULL OR l.serviceName = :serviceName) AND " +
-           "(:level IS NULL OR l.level = :level) AND " +
-           "(:start IS NULL OR l.timestamp >= :start) AND " +
-           "(:end IS NULL OR l.timestamp <= :end) AND " +
-           "(:keyword IS NULL OR LOWER(l.message) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    Page<LogEntry> searchWithFilters(@Param("serviceName") String serviceName,
-                                     @Param("level") LogLevel level,
-                                     @Param("start") Instant start,
-                                     @Param("end") Instant end,
-                                     @Param("keyword") String keyword,
-                                     Pageable pageable);
+    // Basic search variants used by SearchService to avoid complex dynamic JPQL issues
+    Page<LogEntry> findByServiceNameAndLevelAndTimestampBetweenAndMessageContainingIgnoreCase(
+            String serviceName,
+            LogLevel level,
+            Instant start,
+            Instant end,
+            String keyword,
+            Pageable pageable);
+
+    Page<LogEntry> findByServiceNameAndLevelAndTimestampBetween(
+            String serviceName,
+            LogLevel level,
+            Instant start,
+            Instant end,
+            Pageable pageable);
+
+    Page<LogEntry> findByServiceNameAndTimestampBetween(
+            String serviceName,
+            Instant start,
+            Instant end,
+            Pageable pageable);
+
+    Page<LogEntry> findByLevelAndTimestampBetween(
+            LogLevel level,
+            Instant start,
+            Instant end,
+            Pageable pageable);
+
+    Page<LogEntry> findByTimestampBetweenAndMessageContainingIgnoreCase(
+            Instant start,
+            Instant end,
+            String keyword,
+            Pageable pageable);
 
     @Modifying
     @Transactional
