@@ -50,6 +50,11 @@ public class RetentionService {
         return retentionPolicyRepository.findAll();
     }
 
+    public RetentionPolicy getPolicyByServiceName(String serviceName) {
+        return retentionPolicyRepository.findByServiceName(serviceName)
+                .orElse(null);
+    }
+
     @Transactional
     @Scheduled(cron = "0 0 2 * * *") // runs daily at 2am
     public void applyRetention() {

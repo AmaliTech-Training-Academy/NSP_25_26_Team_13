@@ -1,12 +1,46 @@
 const API_URL = '/api/health/dashboard';
 const REFRESH_INTERVAL = 30000;
 
+function getAuthHeaders() {
+    const token = localStorage.getItem('jwt_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+    }
+    return headers;
+}
+
+function isAuthenticated() {
+    return localStorage.getItem('jwt_token') !== null;
+}
+
+function redirectToLogin() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_role');
+    window.location.href = '/login';
+}
+
 async function fetchHealthData() {
+    if (!isAuthenticated()) {
+        redirectToLogin();
+        return;
+    }
+
     try {
+<<<<<<< Updated upstream
         const response = await fetch(API_URL);
         
         if (response.status === 401 || response.status === 403) {
             window.location.href = '/login';
+=======
+        const response = await fetch(API_URL, {
+            headers: getAuthHeaders()
+        });
+        
+        if (response.status === 401) {
+            redirectToLogin();
+>>>>>>> Stashed changes
             return;
         }
         
@@ -15,7 +49,11 @@ async function fetchHealthData() {
         }
         
         const data = await response.json();
+<<<<<<< Updated upstream
         renderDashboard(data.data || []);
+=======
+        renderDashboard(data.data);
+>>>>>>> Stashed changes
         hideError();
     } catch (error) {
         console.error('Error fetching health data:', error);
@@ -143,5 +181,9 @@ function hideError() {
 
 document.getElementById('refreshBtn')?.addEventListener('click', fetchHealthData);
 
-fetchHealthData();
-setInterval(fetchHealthData, REFRESH_INTERVAL);
+if (isAuthenticated()) {
+    fetchHealthData();
+    setInterval(fetchHealthData, REFRESH_INTERVAL);
+} else {
+    redirectToLogin();
+}

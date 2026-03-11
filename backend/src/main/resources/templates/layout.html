@@ -140,7 +140,21 @@
     </div>
 
     <script th:inline="javascript">
+        function isAuthenticated() {
+            return localStorage.getItem('jwt_token') !== null;
+        }
+
+        function redirectToLogin() {
+            window.location.href = '/login';
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/login' && currentPath !== '/logout' && !isAuthenticated()) {
+                redirectToLogin();
+                return;
+            }
+
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
             const sidebar = document.getElementById('sidebar');
             const sidebarToggle = document.getElementById('sidebarToggle');

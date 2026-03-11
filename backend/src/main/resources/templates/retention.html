@@ -68,10 +68,10 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-sm space-x-2">
-                                        <a th:href="@{/retention/edit/{id}(id=${policy.id})}" class="text-blue-600 hover:text-blue-900">
+                                        <a th:href="@{/retention/edit/{serviceName}(serviceName=${policy.serviceName})}" class="text-blue-600 hover:text-blue-900">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a th:href="@{/retention/delete/{id}(id=${policy.id})}" class="text-red-600 hover:text-red-900"
+                                        <a th:href="@{/retention/delete/{serviceName}(serviceName=${policy.serviceName})}" class="text-red-600 hover:text-red-900"
                                            onclick="return confirm('Are you sure?')">
                                             <i class="fas fa-trash"></i>
                                         </a>
