@@ -180,13 +180,11 @@ class IngestionServiceTests {
                 .isBeforeOrEqualTo(after);
     }
 
-
     @Test
     void ingestBatch_validRequests_allSavedAndCountReturned() {
         BatchLogRequest batchRequest = new BatchLogRequest(List.of(
                 buildRequest("svc1", "INFO", "msg1", null, null, null),
-                buildRequest("svc2", "ERROR", "msg2", null, null, null)
-        ));
+                buildRequest("svc2", "ERROR", "msg2", null, null, null)));
 
         BatchLogEntryResponse result = service.ingestBatch(batchRequest);
 
@@ -211,8 +209,7 @@ class IngestionServiceTests {
     @Test
     void ingestBatch_singleEntry_countIsOne() {
         BatchLogRequest batchRequest = new BatchLogRequest(List.of(
-                buildRequest("svc", "DEBUG", "msg", null, null, null)
-        ));
+                buildRequest("svc", "DEBUG", "msg", null, null, null)));
 
         BatchLogEntryResponse result = service.ingestBatch(batchRequest);
 
@@ -247,7 +244,7 @@ class IngestionServiceTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"DEBUG", "INFO", "WARN", "ERROR"})
+    @ValueSource(strings = { "DEBUG", "INFO", "WARN", "ERROR" })
     void ingestLog_allValidLevels_noExceptionThrown(String level) {
         LogEntryRequest request = buildRequest("svc", level, "msg", null, null, null);
         when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
@@ -259,18 +256,17 @@ class IngestionServiceTests {
     void ingestBatch_oneEntryHasInvalidLevel_throwsBadRequestExceptionAndNothingSaved() {
         BatchLogRequest batchRequest = new BatchLogRequest(List.of(
                 buildRequest("svc1", "INFO", "msg1", null, null, null),
-                buildRequest("svc2", "INVALID", "msg2", null, null, null)
-        ));
+                buildRequest("svc2", "INVALID", "msg2", null, null, null)));
 
         assertThatThrownBy(() -> service.ingestBatch(batchRequest))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("No enum constant com.logstream.model.LogLevel.INVALID");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No enum constant com.logstream.model.LogLevel.INVALID");
         verify(logEntryRepository, never()).saveAll(any());
     }
 
     private LogEntryRequest buildRequest(String serviceName, String level, String message,
-                                         String source, String traceId,
-                                         Map<String, String> metadata) {
+            String source, String traceId,
+            Map<String, String> metadata) {
         return LogEntryRequest.builder()
                 .serviceName(serviceName)
                 .level(level)
