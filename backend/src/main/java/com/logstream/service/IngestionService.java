@@ -6,7 +6,6 @@ import com.logstream.dto.BatchLogEntryResponse;
 import com.logstream.dto.BatchLogRequest;
 import com.logstream.dto.LogEntryRequest;
 import com.logstream.dto.LogEntryResponse;
-import com.logstream.exception.BadRequestException;
 import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
@@ -17,7 +16,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -57,7 +55,6 @@ public class IngestionService {
     }
 
     private LogEntry mapToEntity(LogEntryRequest request) {
-        validateLogLevel(request.getLevel());
         return LogEntry.builder()
                 .serviceName(request.getServiceName())
                 .timestamp(Instant.now())
@@ -75,19 +72,5 @@ public class IngestionService {
                 .level(e.getLevel()).message(e.getMessage()).metadata(e.getMetadata())
                 .source(e.getSource()).traceId(e.getTraceId()).createdAt(e.getCreatedAt())
                 .build();
-    }
-
-    private void validateLogLevel(String level) {
-        if (level == null || level.isBlank()) {
-            throw new BadRequestException("Log level is required");
-        }
-
-        String normalized = level.trim().toUpperCase();
-        boolean isValid = Arrays.stream(LogLevel.values())
-                .anyMatch(v -> v.name().equals(normalized));
-
-        if (!isValid) {
-            throw new BadRequestException("Log level must be one of: DEBUG, INFO, WARN, ERROR");
-        }
     }
 }
