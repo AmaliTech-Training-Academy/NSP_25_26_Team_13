@@ -37,7 +37,6 @@ class FileParsingServiceTest {
         assertThat(result.getTimestamp()).isNotNull();
         // traceId and metadata are not part of the CSV column format
         assertThat(result.getTraceId()).isNull();
-        assertThat(result.getMetadata()).isNull();
     }
 
     @Test
@@ -49,7 +48,6 @@ class FileParsingServiceTest {
         assertThat(result.getLevel()).isEqualTo(LogLevel.WARN);
         assertThat(result.getMessage()).isEqualTo("Low memory");
         assertThat(result.getTraceId()).isNull();
-        assertThat(result.getMetadata()).isNull();
     }
 
     @Test
@@ -118,7 +116,6 @@ class FileParsingServiceTest {
 
         assertThat(result.getSource()).isEmpty();
         assertThat(result.getTraceId()).isNull();
-        assertThat(result.getMetadata()).isNull();
     }
 
     @Test
@@ -127,7 +124,6 @@ class FileParsingServiceTest {
 
         assertThat(result.getSource()).isEqualTo("com.example.Foo");
         assertThat(result.getTraceId()).isNull();
-        assertThat(result.getMetadata()).isNull();
     }
 
     @Test
@@ -137,7 +133,6 @@ class FileParsingServiceTest {
 
         assertThat(result.getSource()).isEqualTo("src");
         assertThat(result.getTraceId()).isNull();
-        assertThat(result.getMetadata()).isNull();
     }
 
     @Test
@@ -166,13 +161,13 @@ class FileParsingServiceTest {
                 .hasMessageContaining("Error parsing CSV line");
     }
 
-    private LogEntry parseCsvLineSuppressingWorkerNoise(String line) {
+    private void parseCsvLineSuppressingWorkerNoise(String line) {
         Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             // OpenCSV can throw expected worker-thread exceptions for malformed rows.
         });
         try {
-            return service.parseCSVLine(line);
+            service.parseCSVLine(line);
         } finally {
             Thread.setDefaultUncaughtExceptionHandler(previous);
         }

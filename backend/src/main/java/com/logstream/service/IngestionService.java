@@ -60,7 +60,6 @@ public class IngestionService {
                 .timestamp(Instant.now())
                 .level(LogLevel.valueOf(request.getLevel()))
                 .message(request.getMessage())
-                .metadata(serializeMetadata(request.getMetadata()))
                 .source(request.getSource())
                 .traceId(request.getTraceId())
                 .build();
@@ -69,7 +68,7 @@ public class IngestionService {
     private LogEntryResponse mapToResponse(LogEntry e) {
         return LogEntryResponse.builder()
                 .id(e.getId()).serviceName(e.getServiceName()).timestamp(e.getTimestamp())
-                .level(e.getLevel()).message(e.getMessage()).metadata(e.getMetadata())
+                .level(e.getLevel()).message(e.getMessage()).metadata(null)
                 .source(e.getSource()).traceId(e.getTraceId()).createdAt(e.getCreatedAt())
                 .build();
     }

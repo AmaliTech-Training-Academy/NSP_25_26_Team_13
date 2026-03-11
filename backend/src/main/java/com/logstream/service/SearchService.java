@@ -38,7 +38,7 @@ public class SearchService {
     private LogEntryResponse mapToResponse(LogEntry e) {
         return LogEntryResponse.builder()
                 .id(e.getId()).serviceName(e.getServiceName()).timestamp(e.getTimestamp())
-                .level(e.getLevel()).message(e.getMessage()).metadata(e.getMetadata())
+                .level(e.getLevel()).message(e.getMessage()).metadata(null)
                 .source(e.getSource()).traceId(e.getTraceId()).createdAt(e.getCreatedAt())
                 .build();
     }
