@@ -260,9 +260,9 @@ public class WebController {
                         LogEntryRequest request = new LogEntryRequest();
                         request.setServiceName(parts[2].trim());
                         try {
-                            request.setLevel(com.logstream.model.LogLevel.valueOf(parts[3].trim().toUpperCase()));
+                            request.setLevel(com.logstream.model.LogLevel.valueOf(parts[3].trim().toUpperCase()).name());
                         } catch (Exception e) {
-                            request.setLevel(com.logstream.model.LogLevel.INFO);
+                            request.setLevel(com.logstream.model.LogLevel.INFO.name());
                         }
                         request.setMessage(parts[4].trim());
                         request.setSource(parts.length > 5 ? parts[5].trim() : "csv-import");
