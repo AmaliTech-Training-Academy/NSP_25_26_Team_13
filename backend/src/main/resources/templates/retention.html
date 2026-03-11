@@ -17,8 +17,11 @@
                     <form th:action="@{/retention/add}" method="post" th:object="${newPolicy}" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Service Name</label>
-                            <input type="text" th:field="*{serviceName}" required
-                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                            <select th:field="*{serviceName}" required
+                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
+                                <option value="">Select a service</option>
+                                <option th:each="service : ${services}" th:value="${service}" th:text="${service}"></option>
+                            </select>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Retention Days</label>

@@ -95,8 +95,10 @@ public class WebController {
         
         try {
             model.addAttribute("policies", retentionService.getPolicies());
+            model.addAttribute("services", retentionService.getAllServices());
         } catch (Exception e) {
             model.addAttribute("policies", java.util.Collections.emptyList());
+            model.addAttribute("services", java.util.Collections.emptyList());
             model.addAttribute("error", "Unable to load policies: " + e.getMessage());
         }
         

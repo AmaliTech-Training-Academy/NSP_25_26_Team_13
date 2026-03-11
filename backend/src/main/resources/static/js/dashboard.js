@@ -92,7 +92,7 @@ function createServiceRow(service) {
             <div class="text-sm text-gray-600">${lastLogTime}</div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm">
-            <a href="/api/analytics/error-rate?service=${encodeURIComponent(service.service)}" 
+            <a href="/analytics?service=${encodeURIComponent(service.service)}" 
                class="text-blue-600 hover:text-blue-900 mr-4">
                 <i class="fas fa-chart-bar"></i> Analytics
             </a>

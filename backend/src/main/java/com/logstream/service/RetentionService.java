@@ -50,6 +50,10 @@ public class RetentionService {
         return retentionPolicyRepository.findAll();
     }
 
+    public List<String> getAllServices() {
+        return logEntryRepository.findDistinctServiceNames();
+    }
+
     public RetentionPolicy getPolicyByServiceName(String serviceName) {
         return retentionPolicyRepository.findByServiceName(serviceName)
                 .orElse(null);
