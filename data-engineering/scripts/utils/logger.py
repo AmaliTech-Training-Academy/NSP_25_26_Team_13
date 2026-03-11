@@ -28,6 +28,7 @@ def get_logger(name: str):
     """
     Returns a configured logger instance with both file and console handlers.
     """
+    
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
@@ -43,6 +44,8 @@ def get_logger(name: str):
 
     # Console Handler (Standard Output)
     console_handler = logging.StreamHandler(sys.stdout)
+    
+    console_handler.setStream(open(sys.stdout.fileno(),mode='w',encoding='utf-8',buffering=1))
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 

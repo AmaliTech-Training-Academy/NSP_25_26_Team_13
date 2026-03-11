@@ -7,7 +7,7 @@ env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path)
 
 # Fetch environment variables correctly
-DB_CONFIG = {
+""" DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),  # use DB_HOST
     "port": os.getenv("DB_PORT", "5432"),
     "database": os.getenv("DB_NAME", ""),
@@ -24,7 +24,7 @@ if not DB_CONFIG["user"] or not DB_CONFIG["password"]:
 DATABASE_URL = (
     f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
     f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-)
+) """
 
 
 

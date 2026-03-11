@@ -131,6 +131,8 @@ GROUP BY service_name, day_of_week, hour_of_day
 ORDER BY service_name, day_of_week, hour_of_day;
 
 
+-- Metabase panel : Heatmap (x=hour_of_day, y=day_of_week, color=log_count)
+
 -- VIEW 8: Error Spike Detection — Current 1h vs 7-Day Avg
 -- Metabase panel : Table with conditional formatting
 --                 (highlight rows where spike_ratio > 2)
