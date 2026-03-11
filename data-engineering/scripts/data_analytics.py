@@ -451,6 +451,81 @@ def recent_critical_events(
     )
 
 
+def service_health_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Per-service health summary matching vw_service_health_dashboard.
+
+    Combines 24-hour volume/rate metrics with a 1-hour error window
+    to produce a status indicator for each service.
+
+    Status rules (same as the SQL view):
+        errors_last_1h > 10          → CRITICAL
+        error_rate_24h > 10%         → DEGRADED
+        else                         → HEALTHY
+
+    Returns
+    -------
+    DataFrame: service_name, last_log_at, total_logs_24h,
+               error_rate_24h, warn_rate_24h, errors_last_1h, status
+
+    Ordered by severity (CRITICAL first) then error_rate_24h descending.
+    """
+    w24 = _window(df, hours=24)
+    w1h = _window(df, hours=1)
+
+    if w24.empty:
+        return pd.DataFrame(columns=[
+            "service_name", "last_log_at", "total_logs_24h",
+            "error_rate_24h", "warn_rate_24h", "errors_last_1h", "status",
+        ])
+
+    # 24-hour aggregates
+    agg24 = (
+        w24.groupby("service_name")
+        .agg(
+            total_logs_24h =("level", "count"),
+            error_count    =("level", lambda x: (x == "ERROR").sum()),
+            warn_count     =("level", lambda x: (x == "WARN").sum()),
+            last_log_at    =("timestamp", "max"),
+        )
+        .assign(
+            error_rate_24h=lambda d: (d["error_count"] / d["total_logs_24h"] * 100).round(2),
+            warn_rate_24h =lambda d: (d["warn_count"]  / d["total_logs_24h"] * 100).round(2),
+        )
+        .drop(columns=["error_count", "warn_count"])
+        .reset_index()
+    )
+
+    # 1-hour error count
+    agg1h = (
+        w1h[w1h["level"] == "ERROR"]
+        .groupby("service_name")
+        .size()
+        .reset_index(name="errors_last_1h")
+    )
+
+    result = agg24.merge(agg1h, on="service_name", how="left")
+    result["errors_last_1h"] = result["errors_last_1h"].fillna(0).astype(int)
+
+    def _status(row) -> str:
+        if row["errors_last_1h"] > 10:    return "CRITICAL"
+        if row["error_rate_24h"] > 10.0:  return "DEGRADED"
+        return "HEALTHY"
+
+    result["status"] = result.apply(_status, axis=1)
+
+    # Sort: CRITICAL → DEGRADED → HEALTHY, then by error rate desc
+    severity_order = {"CRITICAL": 0, "DEGRADED": 1, "HEALTHY": 2}
+    result["_sev"] = result["status"].map(severity_order)
+    result = (
+        result.sort_values(["_sev", "error_rate_24h"], ascending=[True, False])
+        .drop(columns=["_sev"])
+        .reset_index(drop=True)
+    )
+
+    return result[["service_name", "last_log_at", "total_logs_24h",
+                   "error_rate_24h", "warn_rate_24h", "errors_last_1h", "status"]]
+
 
 # CLI / SMOKE TEST
 

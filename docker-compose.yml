@@ -1,52 +1,77 @@
 # =============================================================
-# LogStream — Standardized Full-Stack Configuration
+# LogStream — Full-Stack Docker Compose
+#
+# ACCESS POINTS:
+#   Backend API     → http://localhost:${BACKEND_PORT}
+#   Swagger UI      → http://localhost:${BACKEND_PORT}/swagger-ui/index.html
+#   Metabase        → http://localhost:${METABASE_PORT}
+#   Dashboard       → http://localhost:8050 (disabled — dashboard.py missing)
+#
+# STARTUP ORDER:
+#   1. postgres         — database server
+#   2. backend          — Spring Boot REST API
+#   3. data-engineering — ETL pipeline (runs every 15 min) + ad-hoc runner
+#   4. metabase         — analytics dashboard
+#
+# FIRST TIME SETUP:
+#   cp .env.example .env     ← fill in your values
+#   docker compose up --build -d
+#
+# RESET EVERYTHING (wipes all data volumes):
+#   docker compose down -v && docker compose up --build -d
+#
+# AD-HOC SCRIPT EXECUTION (replaces the old data-engine container):
+#   docker compose exec data-engineering python scripts/data_generator.py --count 10000 --days 30
+#   docker compose exec data-engineering python scripts/retention_policy.py
 # =============================================================
 
-# 1. TEMPLATES (The "Don't Repeat Yourself" block)
-x-de-template: &de-template
-  build: ./data-engineering
-  env_file: .env
-  environment:
-    DB_HOST: postgres
-    DB_PORT: "5432"
-    DB_NAME: ${DB_NAME}
-    DB_USER: ${DB_USERNAME}
-    DB_PASSWORD: ${DB_PASSWORD}
-    PYTHONPATH: /app
-  volumes:
-    - de_data:/app/data
-    - de_archives:/app/archives
-  depends_on:
-    postgres:
-      condition: service_healthy
-
 services:
-  # ── Infrastructure ──────────────────────────────────────────
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  # Init scripts run in filename order on a FRESH volume only:
+  #   01_schema_ddl.sql       — extensions, log_entries (partitioned), users, retention_policies
+  #   02_analytics.sql        — pre-built Metabase views (vw_error_rate_24h, etc.)
+  #
+  # ensure_metabase_db.sh runs on EVERY startup — creates the metabase
+  # database automatically if it does not exist. No manual commands needed.
   postgres:
     image: postgres:16-alpine
     container_name: logstream-postgres
+    env_file: .env
     environment:
-      POSTGRES_DB: logstream
-      POSTGRES_USER: logstream
-      POSTGRES_PASSWORD: logstream123
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./data-engineering/db/ddl/schema_ddl.sql:/docker-entrypoint-initdb.d/01_schema_ddl.sql:ro
       - ./data-engineering/db/dml/analytics.sql:/docker-entrypoint-initdb.d/02_analytics.sql:ro
-      - ./data-engineering/db/dml/init_metabase.sql:/docker-entrypoint-initdb.d/03_metabase.sql:ro
-      - ./devops/db/ensure_metabase_db.sh:/docker-entrypoint-initdb.d/04_ensure_metabase_db.sh:ro
+      - ./devops/db/ensure_metabase_db.sh:/docker-entrypoint-initdb.d/03_ensure_metabase_db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logstream"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  # ── Application Services ────────────────────────────────────
+  # ── Backend (Spring Boot) ────────────────────────────────────
+  # REST API for log ingestion, search, analytics, and retention.
+  # data.sql seeds initial roles and retention config on startup.
+  #
+  # NOTE TO BACKEND TEAM: whitelist /actuator/health in SecurityConfig.java
+  # to enable a proper Docker healthcheck here.
   backend:
     build: ./backend
     container_name: logstream-backend
+    env_file: .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
@@ -54,44 +79,52 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ── Data Engineering (The Refactored Trio) ──────────────────
-
-  # 1. The Scheduled ETL Pipeline
+  # ── Data Engineering ─────────────────────────────────────────
+  # Runs the ETL pipeline every 15 minutes automatically.
+  # Also doubles as the ad-hoc script runner — use exec instead of
+  # spinning up a separate container:
+  #   docker compose exec data-engineering python scripts/data_generator.py
+  #   docker compose exec data-engineering python scripts/retention_policy.py
   data-engineering:
-    <<: *de-template
+    build: ./data-engineering
     container_name: logstream-data-engineering
-    # Overriding the command to add the 15-minute loop
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PYTHONPATH: /app
+    volumes:
+      - de_data:/app/data
+      - de_archives:/app/archives
+      - ./data-engineering/scripts:/app/scripts
+      - ./data-engineering/tests:/app/tests
     command: >
       sh -c "
-        echo 'Waiting 10s for backend...' && sleep 10 &&
+        echo 'Waiting 10s for backend to seed initial data...' &&
+        sleep 10 &&
         while true; do
+          echo '── ETL run at '$(date -u +%Y-%m-%dT%H:%M:%SZ)' ──' &&
           python scripts/etl_pipeline.py;
           echo 'Next run in 15 minutes...';
           sleep 900;
         done
       "
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: on-failure
 
-  # 2. The Interactive Shell (for manual runs)
-  data-engine:
-    <<: *de-template
-    container_name: logstream-data-engine
-    volumes:
-      - de_data:/app/data
-      - ./data-engineering/scripts:/app/scripts
-      - ./data-engineering/tests:/app/tests
-    command: ["sleep", "infinity"]
-    restart: unless-stopped
-
-  # 3. The Visualization Dashboard (Easy to enable now)
-  # dashboard:
-  #   <<: *de-template
-  #   container_name: logstream-dashboard
-  #   ports:
-  #     - "8050:8050"
-  #   command: python scripts/dashboard.py
-
-  # ── Analytics ───────────────────────────────────────────────
+  # ── Metabase — Analytics Dashboard ──────────────────────────
+  # Business intelligence UI for querying and visualising log data.
+  # Uses a SEPARATE metabase database (created automatically by
+  # devops/db/ensure_metabase_db.sh on every postgres startup).
+  #
+  # On first visit follow the setup wizard:
+  #   Host: postgres | Port: 5432 | Database: logstream
+  #   Username / Password: values from your .env file
   metabase:
     image: metabase/metabase:v0.59.x
     container_name: logstream-metabase
@@ -99,7 +132,7 @@ services:
     environment:
       MB_DB_TYPE: postgres
       MB_DB_HOST: postgres
-      MB_DB_PORT: 5432
+      MB_DB_PORT: ${DB_PORT}
       MB_DB_DBNAME: metabase
       MB_DB_USER: ${DB_USERNAME}
       MB_DB_PASS: ${DB_PASSWORD}
@@ -110,5 +143,37 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── Dashboard — Python Dash UI (disabled) ────────────────────
+  # TO ENABLE: create scripts/dashboard.py then uncomment below.
+  #
+  # dashboard:
+  #   build: ./data-engineering
+  #   container_name: logstream-dashboard
+  #   env_file: .env
+  #   environment:
+  #     DB_HOST: postgres
+  #     DB_PORT: ${DB_PORT}
+  #     DB_NAME: ${DB_NAME}
+  #     DB_USER: ${DB_USERNAME}
+  #     DB_PASSWORD: ${DB_PASSWORD}
+  #     PYTHONPATH: /app
+  #   command: python scripts/dashboard.py
+  #   ports:
+  #     - "8050:8050"
+  #   volumes:
+  #     - ./data-engineering/scripts:/app/scripts
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+# =============================================================
+# Named Volumes
+#   pgdata       — PostgreSQL data (log_entries, users, retention_policies)
+#   de_data      — data-engineering working data directory
+#   de_archives  — data-engineering archive output directory
+# =============================================================
 volumes:
   pgdata:
+  de_data:
+  de_archives:

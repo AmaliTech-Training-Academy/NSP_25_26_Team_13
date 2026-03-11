@@ -135,7 +135,6 @@ class IngestionServiceTests {
                 .isBeforeOrEqualTo(after);
     }
 
-
     @Test
     void ingestBatch_validRequests_allSavedAndCountReturned() {
         BatchLogRequest batchRequest = new BatchLogRequest(List.of(
@@ -202,7 +201,7 @@ class IngestionServiceTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"DEBUG", "INFO", "WARN", "ERROR"})
+    @ValueSource(strings = { "DEBUG", "INFO", "WARN", "ERROR" })
     void ingestLog_allValidLevels_noExceptionThrown(String level) {
         LogEntryRequest request = buildRequest("svc", level, "msg", null, null);
         when(logEntryRepository.save(any(LogEntry.class))).thenReturn(savedEntry);
