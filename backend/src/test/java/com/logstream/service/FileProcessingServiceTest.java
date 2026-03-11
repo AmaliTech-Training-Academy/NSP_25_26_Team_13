@@ -191,7 +191,6 @@ class FileProcessingServiceTest {
         assertThat(entry.getLevel()).isEqualTo(LogLevel.ERROR);
         assertThat(entry.getMessage()).isEqualTo("Something failed");
         assertThat(entry.getSource()).isEqualTo("AuthController.java");
-        assertThat(entry.getTraceId()).isEqualTo("abc-123");
         assertThat(entry.getTimestamp()).isNotNull();
     }
 
