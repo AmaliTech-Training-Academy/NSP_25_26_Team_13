@@ -71,11 +71,20 @@ public class FileParsingService {
                 .level(LogLevel.valueOf(entryCSV.getLevel().toUpperCase()))
                 .message(entryCSV.getMessage())
                 .source(entryCSV.getSource())
-                .timestamp(Instant.now())
-                .createdAt(entryCSV.getCreatedAt() != null
-                        ? LocalDateTime.parse(entryCSV.getCreatedAt()).toInstant(ZoneOffset.UTC)
-                        : null)
+                .createdAt(Instant.now())
+                .timestamp(parseTimestamp(entryCSV.getTimestamp()))
                 .build();
+    }
+
+    private Instant parseTimestamp(String timestamp) {
+        if (timestamp == null || timestamp.isBlank()) {
+            return Instant.now();
+        }
+        try {
+            return Instant.parse(timestamp);
+        } catch (DateTimeParseException e) {
+            return LocalDateTime.parse(timestamp).toInstant(ZoneOffset.UTC);
+        }
     }
 
     private String trimToNull(String s) {
