@@ -1,16 +1,8 @@
 package com.logstream.controller;
 
-import com.logstream.dto.BatchLogRequest;
-import com.logstream.dto.BatchLogEntryResponse;
-import com.logstream.dto.LogEntryRequest;
 import com.logstream.dto.LogSearchRequest;
 import com.logstream.model.RetentionPolicy;
-import com.logstream.service.AnalyticsService;
-import com.logstream.service.AuthService;
-import com.logstream.service.HealthService;
-import com.logstream.service.IngestionService;
-import com.logstream.service.RetentionService;
-import com.logstream.service.SearchService;
+import com.logstream.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +16,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -36,10 +26,10 @@ public class WebController {
 
     private final AnalyticsService analyticsService;
     private final HealthService healthService;
-    private final IngestionService ingestionService;
     private final RetentionService retentionService;
     private final SearchService searchService;
     private final AuthService authService;
+    private final LogImportService logImportService;
 
     @GetMapping("/login")
     public String loginPage(@RequestParam(required = false) String error, Model model) {
@@ -287,43 +277,11 @@ public class WebController {
 
     @PostMapping("/logs/import/csv")
     public String importLogsFromCsv(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-            String line;
-            boolean skipHeader = true;
-            var logRequests = new java.util.ArrayList<LogEntryRequest>();
-            
-            while ((line = reader.readLine()) != null) {
-                if (skipHeader) {
-                    skipHeader = false;
-                    continue;
-                }
-                if (!line.trim().isEmpty()) {
-                    String[] parts = line.split(",", 6);
-                    if (parts.length >= 4) {
-                        LogEntryRequest request = new LogEntryRequest();
-                        request.setServiceName(parts[2].trim());
-                        try {
-                            request.setLevel(com.logstream.model.LogLevel.valueOf(parts[3].trim().toUpperCase()).name());
-                        } catch (Exception e) {
-                            request.setLevel(com.logstream.model.LogLevel.INFO.name());
-                        }
-                        request.setMessage(parts[4].trim());
-                        request.setSource(parts.length > 5 ? parts[5].trim() : "csv-import");
-                        logRequests.add(request);
-                    }
-                }
-            }
-            
-            if (!logRequests.isEmpty()) {
-                BatchLogRequest batchRequest = new BatchLogRequest();
-                batchRequest.setLogs(logRequests);
-                BatchLogEntryResponse result = ingestionService.ingestBatch(batchRequest);
-                redirectAttributes.addFlashAttribute("success", "Successfully imported " + result.getCount() + " log entries from CSV");
-            } else {
-                redirectAttributes.addFlashAttribute("error", "No valid log entries found in CSV");
-            }
+        try {
+            logImportService.initiateImport(file);
+            redirectAttributes.addFlashAttribute("success", "Successfully imported log entries from file");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Failed to import CSV: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Failed to import: " + e.getMessage());
         }
         return "redirect:/logs";
     }
