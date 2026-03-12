@@ -4,6 +4,8 @@ import com.logstream.dto.AuthRequest;
 import com.logstream.dto.AuthResponse;
 import com.logstream.dto.RegisterRequest;
 import com.logstream.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -17,10 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "User registration and login")
 public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
+    @Operation(summary = "Register a new user", description = "Creates a new user account and returns a JWT token in the response body and as an HTTP-only cookie.")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletResponse response) {
         AuthResponse authResponse = authService.register(request);
         addTokenCookie(response, authResponse.getToken());
@@ -28,6 +32,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Login with email and password", description = "Authenticates the user and returns a JWT token in the response body and as an HTTP-only cookie.")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request, HttpServletResponse response) {
         AuthResponse authResponse = authService.login(request);
         addTokenCookie(response, authResponse.getToken());
