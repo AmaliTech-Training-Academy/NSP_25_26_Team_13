@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{layout :: head}">
+    <title>Analytics - LogStream</title>
+</head>
+<body>
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
+
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <form id="filterForm" class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Service</label>
+                    <select id="serviceSelect" name="service" class="mt-1 px-3 py-2 border border-gray-300 rounded-md min-w-48">
+                        <option value="">All Services</option>
+                        <option th:each="svc : ${services}" th:value="${svc.service}" th:text="${svc.service}" th:selected="${svc.service == selectedService}"></option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Granularity</label>
+                    <select id="granularitySelect" name="granularity" class="mt-1 px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="hour" th:selected="${granularity == 'hour'}">Hourly</option>
+                        <option value="day" th:selected="${granularity == 'day'}">Daily</option>
+                    </select>
+                </div>
+                <button type="button" id="updateBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+            </form>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Error Rate Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Error Rate by Service</h2>
+                <div class="h-64">
+                    <canvas id="errorRateChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Log Volume Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Log Volume Over Time</h2>
+                <div class="h-64">
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Common Errors -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Top Error Messages</h2>
+                <div class="space-y-3 max-h-64 overflow-y-auto">
+                    <div th:each="error : ${commonErrors}" class="flex justify-between items-center p-3 bg-gray-50 rounded hover:bg-gray-100 transition">
+                        <span class="text-sm text-gray-700 truncate flex-1 mr-2" th:title="${error.message}" th:text="${error.message}"></span>
+                        <span class="text-sm font-bold text-red-600 bg-red-50 px-2 py-1 rounded" th:text="${error.count}"></span>
+                    </div>
+                    <div th:if="${#lists.isEmpty(commonErrors)}" class="text-center text-gray-500 py-8">
+                        No errors found
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Statistics -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Service Statistics</h2>
+                <div class="space-y-3 max-h-64 overflow-y-auto">
+                    <div th:each="service : ${errorRates}" class="flex justify-between items-center p-3 bg-gray-50 rounded hover:bg-gray-100 transition">
+                        <span class="text-sm font-medium text-gray-900" th:text="${service.service}"></span>
+                        <div class="flex items-center gap-2">
+                            <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div th:classappend="${service.errorRate > 5 ? 'bg-red-500' : service.errorRate > 1 ? 'bg-yellow-500' : 'bg-green-500'}"
+                                     class="h-full rounded-full" th:style="'width: ' + ${service.errorRate > 100 ? 100 : service.errorRate} + '%'"></div>
+                            </div>
+                            <span th:classappend="${service.errorRate > 5 ? 'text-red-600' : service.errorRate > 1 ? 'text-yellow-600' : 'text-green-600'}"
+                                  class="text-sm font-bold w-12 text-right" th:text="${service.errorRate} + '%'"></span>
+                        </div>
+                    </div>
+                    <div th:if="${#lists.isEmpty(errorRates)}" class="text-center text-gray-500 py-8">
+                        No services found
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script th:inline="javascript">
+        // Auto-update on filter change
+        document.getElementById('serviceSelect').addEventListener('change', function() {
+            updateAnalytics();
+        });
+        
+        document.getElementById('granularitySelect').addEventListener('change', function() {
+            updateAnalytics();
+        });
+        
+        // Update button for hard refresh
+        document.getElementById('updateBtn').addEventListener('click', function() {
+            window.location.href = window.location.pathname + '?' + new URLSearchParams(new FormData(document.getElementById('filterForm'))).toString();
+        });
+        
+        function updateAnalytics() {
+            const service = document.getElementById('serviceSelect').value;
+            const granularity = document.getElementById('granularitySelect').value;
+            let url = '/analytics?granularity=' + granularity;
+            if (service) {
+                url += '&service=' + encodeURIComponent(service);
+            }
+            window.location.href = url;
+        }
+
+        // Chart.js default configuration
+        Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+        Chart.defaults.color = '#6b7280';
+        
+        // Error Rate Chart with gradient
+        const errorRateCtx = document.getElementById('errorRateChart').getContext('2d');
+        const errorRates = [[${errorRates}]];
+        
+        const errorGradient = errorRateCtx.createLinearGradient(0, 0, 0, 250);
+        errorGradient.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
+        errorGradient.addColorStop(1, 'rgba(239, 68, 68, 0.1)');
+        
+        new Chart(errorRateCtx, {
+            type: 'bar',
+            data: {
+                labels: errorRates.map(e => e.service),
+                datasets: [{
+                    label: 'Error Rate (%)',
+                    data: errorRates.map(e => e.errorRate),
+                    backgroundColor: errorGradient,
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    barThickness: 40
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Error Rate: ' + context.parsed.y.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // Log Volume Chart with gradient
+        const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+        const logVolume = [[${logVolume}]];
+        
+        const volumeGradient = volumeCtx.createLinearGradient(0, 0, 0, 250);
+        volumeGradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
+        volumeGradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+        
+        new Chart(volumeCtx, {
+            type: 'line',
+            data: {
+                labels: logVolume.map(v => v.timestamp),
+                datasets: [{
+                    label: 'Log Volume',
+                    data: logVolume.map(v => v.count),
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: volumeGradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        padding: 12,
+                        cornerRadius: 8,
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Volume: ' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
+                                return value;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxTicksLimit: 8
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    </script>
+</body>
+</html>

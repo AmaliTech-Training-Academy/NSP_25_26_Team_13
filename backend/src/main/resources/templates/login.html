@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - LogStream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .login-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+    </style>
+</head>
+<body class="login-container flex items-center justify-center">
+    <div class="w-full max-w-md px-4">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
+                <i class="fas fa-stream text-3xl text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white">LogStream</h1>
+            <p class="text-slate-400 mt-2">Sign in to your account</p>
+        </div>
+
+        <div class="login-card rounded-2xl shadow-2xl p-8">
+            <div id="errorMessage" class="hidden mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-circle mr-3"></i>
+                    <span id="errorText"></span>
+                </div>
+            </div>
+
+            <div th:if="${param.loggedOut}" class="mb-4 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 rounded-r">
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle mr-3"></i>
+                    <span>You have been logged out successfully.</span>
+                </div>
+            </div>
+
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-envelope mr-2 text-gray-400"></i>Email Address
+                    </label>
+                    <input type="email" id="email" name="email" required
+                           class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 transition"
+                           placeholder="Enter your email">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-gray-400"></i>Password
+                    </label>
+                    <input type="password" id="password" name="password" required
+                           class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 transition"
+                           placeholder="Enter your password">
+                </div>
+
+                <button type="submit" id="loginBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                    <span id="loginText">Sign In</span>
+                    <span id="loginSpinner" class="hidden ml-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-gray-600">Don't have an account? 
+                    <a href="/signup" class="text-blue-600 hover:text-blue-700 font-semibold transition">Sign up</a>
+                </p>
+            </div>
+        </div>
+
+        <p class="text-center text-slate-500 text-sm mt-6">
+            &copy; 2024 LogStream. All rights reserved.
+        </p>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loginText = document.getElementById('loginText');
+            const loginSpinner = document.getElementById('loginSpinner');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+
+            loginBtn.disabled = true;
+            loginText.textContent = 'Signing in...';
+            loginSpinner.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    localStorage.setItem('jwt_token', data.token);
+                    localStorage.setItem('user_email', data.email);
+                    localStorage.setItem('user_role', data.role || 'USER');
+                    localStorage.setItem('is_admin', (data.role === 'ADMIN') ? 'true' : 'false');
+                    window.location.href = '/';
+                } else {
+                    throw new Error(data.message || 'Invalid credentials');
+                }
+            } catch (error) {
+                errorText.textContent = error.message || 'Login failed. Please try again.';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                loginBtn.disabled = false;
+                loginText.textContent = 'Sign In';
+                loginSpinner.classList.add('hidden');
+            }
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isLogout = urlParams.get('loggedOut') === 'true';
+        
+        if (!isLogout && localStorage.getItem('jwt_token')) {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

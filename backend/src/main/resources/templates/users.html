@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - LogStream</title>
+    <th:block th:replace="~{layout :: head}"></th:block>
+</head>
+<body class="bg-gray-50">
+    <div th:replace="~{sidebar :: sidebar}"></div>
+    <div th:replace="~{layout :: header}"></div>
+    <div th:replace="~{layout :: alerts}"></div>
+
+    <!-- Main Content -->
+    <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">User Management</h2>
+                <p class="text-gray-500 mt-1">Manage user accounts and roles</p>
+            </div>
+            <button onclick="openModal('addUserModal')" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition flex items-center shadow-sm"
+                    th:disabled="${!isAdmin}"
+                    th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed' : ''">
+                <i class="fas fa-plus mr-2"></i>Add User
+            </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Search users..." 
+                           class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <select id="roleFilter" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Roles</option>
+                        <option value="ADMIN">Admin</option>
+                        <option value="USER">User</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr th:each="user : ${users}" class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <span class="text-blue-600 font-semibold" th:text="${#strings.substring(user.name, 0, 1).toUpperCase()}">A</span>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900" th:text="${user.name}">John Doe</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" th:text="${user.email}">john@example.com</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full"
+                                      th:classappend="${user.role == 'ADMIN'} ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'"
+                                      th:text="${user.role}">USER</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="flex items-center text-sm">
+                                    <span class="w-2 h-2 rounded-full mr-2" 
+                                          th:classappend="${user.active} ? 'bg-green-500' : 'bg-gray-400'"></span>
+                                    <span th:text="${user.active ? 'Active' : 'Inactive'}">Active</span>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" th:text="${#temporals.format(user.createdAt, 'MMM dd, yyyy')}">Jan 01, 2024</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" th:text="${user.lastLogin != null ? #temporals.format(user.lastLogin, 'MMM dd, yyyy HH:mm') : 'Never'}">Never</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button th:data-user-id="${user.id}" th:data-user-role="${user.role}" th:onclick="openEditRoleModal(this.getAttribute('data-user-id'), this.getAttribute('data-user-role'))" 
+                                        class="text-blue-600 hover:text-blue-900 mr-3" title="Edit Role"
+                                        th:disabled="${!isAdmin}"
+                                        th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
+                                    <i class="fas fa-user-shield"></i>
+                                </button>
+                                <button th:data-user-id="${user.id}" th:data-user-active="${user.active}" th:onclick="openToggleStatusModal(this.getAttribute('data-user-id'), this.getAttribute('data-user-active'))" 
+                                        class="text-gray-600 hover:text-gray-900 mr-3" title="Toggle Status"
+                                        th:disabled="${!isAdmin}"
+                                        th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
+                                    <i class="fas fa-toggle-on" th:classappend="${!user.active} ? 'hidden'"></i>
+                                    <i class="fas fa-toggle-off" th:classappend="${user.active} ? 'hidden'"></i>
+                                </button>
+                                <button th:data-user-id="${user.id}" th:data-user-name="${user.name}" th:onclick="openDeleteModal(this.getAttribute('data-user-id'), this.getAttribute('data-user-name'))" 
+                                        class="text-red-600 hover:text-red-900" title="Delete User"
+                                        th:disabled="${!isAdmin}"
+                                        th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div th:if="${totalPages > 1}" class="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between">
+                <div class="text-sm text-gray-500">
+                    Showing <span th:text="${currentPage * 10 + 1}">1</span> to <span th:text="${(currentPage + 1) * 10 > totalUsers ? totalUsers : (currentPage + 1) * 10}">10</span> of <span th:text="${totalUsers}">0</span> users
+                </div>
+                <div class="flex space-x-2">
+                    <a th:href="@{/users(page=${currentPage - 1})}" th:if="${currentPage > 0}" class="px-3 py-1 border rounded-lg hover:bg-gray-50 text-gray-600">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                    <span th:each="i : ${#numbers.sequence(0, totalPages - 1)}" th:if="${totalPages <= 10 || i < 3 || i >= totalPages - 3 || (i >= currentPage - 1 && i <= currentPage + 1)}">
+                        <a th:href="@{/users(page=${i})}" th:text="${i + 1}" th:classappend="${i == currentPage} ? 'bg-blue-600 text-white' : 'border hover:bg-gray-50 text-gray-600'" class="px-3 py-1 border rounded-lg mx-1"></a>
+                    </span>
+                    <a th:href="@{/users(page=${currentPage + 1})}" th:if="${currentPage + 1 < totalPages}" class="px-3 py-1 border rounded-lg hover:bg-gray-50 text-gray-600">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <div th:if="${users.empty}" class="p-8 text-center text-gray-500">
+                <i class="fas fa-users text-4xl mb-4"></i>
+                <p>No users found</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 class="text-xl font-bold text-gray-900">Add New User</h3>
+                <button onclick="closeModal('addUserModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="addUserForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                    <input type="text" name="fullName" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Enter full name">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <input type="email" name="email" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Enter email address">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" name="password" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Create password (min 8 characters)">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <select name="role" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="USER">User</option>
+                        <option value="ADMIN">Admin</option>
+                    </select>
+                </div>
+                <div id="addUserError" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"></div>
+            </form>
+            <div class="px-6 pb-6 flex justify-end space-x-3">
+                <button onclick="closeModal('addUserModal')" 
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button onclick="addUser()" 
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center">
+                    <span id="addUserBtnText">Create User</span>
+                    <span id="addUserSpinner" class="hidden ml-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Role Modal -->
+    <div id="editRoleModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 class="text-xl font-bold text-gray-900">Edit User Role</h3>
+                <button onclick="closeModal('editRoleModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">Select a new role for this user:</p>
+                <input type="hidden" id="editRoleUserId">
+                <div class="space-y-3">
+                    <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="newRole" value="USER" class="text-blue-600 focus:ring-blue-500">
+                        <div class="ml-3">
+                            <span class="block text-sm font-medium text-gray-900">User</span>
+                            <span class="block text-xs text-gray-500">Standard access to logs and analytics</span>
+                        </div>
+                    </label>
+                    <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="newRole" value="ADMIN" class="text-purple-600 focus:ring-purple-500">
+                        <div class="ml-3">
+                            <span class="block text-sm font-medium text-gray-900">Admin</span>
+                            <span class="block text-xs text-gray-500">Full access including user management</span>
+                        </div>
+                    </label>
+                </div>
+                <div id="editRoleError" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"></div>
+            </div>
+            <div class="px-6 pb-6 flex justify-end space-x-3">
+                <button onclick="closeModal('editRoleModal')" 
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button onclick="updateUserRole()" 
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition flex items-center">
+                    <span id="updateRoleBtnText">Update Role</span>
+                    <span id="updateRoleSpinner" class="hidden ml-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete User Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">Delete User</h3>
+                <p class="text-gray-600 mb-6">Are you sure you want to delete user <span id="deleteUserName" class="font-semibold"></span>? This action cannot be undone.</p>
+                <input type="hidden" id="deleteUserId">
+                <div id="deleteUserError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"></div>
+            </div>
+            <div class="px-6 pb-6 flex justify-end space-x-3">
+                <button onclick="closeModal('deleteModal')" 
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button onclick="deleteUser()" 
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center">
+                    <span id="deleteUserBtnText">Delete User</span>
+                    <span id="deleteUserSpinner" class="hidden ml-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            
+            if (modalId === 'addUserModal') {
+                document.getElementById('addUserForm').reset();
+                document.getElementById('addUserError').classList.add('hidden');
+            } else if (modalId === 'editRoleModal') {
+                document.getElementById('editRoleError').classList.add('hidden');
+            } else if (modalId === 'deleteModal') {
+                document.getElementById('deleteUserError').classList.add('hidden');
+            }
+        }
+
+        function openEditRoleModal(userId, currentRole) {
+            document.getElementById('editRoleUserId').value = userId;
+            document.querySelectorAll('input[name="newRole"]').forEach(radio => {
+                radio.checked = radio.value === currentRole;
+            });
+            openModal('editRoleModal');
+        }
+
+        function openDeleteModal(userId, userName) {
+            document.getElementById('deleteUserId').value = userId;
+            document.getElementById('deleteUserName').textContent = userName;
+            openModal('deleteModal');
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('jwt_token')
+            };
+        }
+
+        async function addUser() {
+            const form = document.getElementById('addUserForm');
+            const formData = new FormData(form);
+            const errorDiv = document.getElementById('addUserError');
+            const btnText = document.getElementById('addUserBtnText');
+            const spinner = document.getElementById('addUserSpinner');
+
+            const data = {
+                fullName: formData.get('fullName'),
+                email: formData.get('email'),
+                password: formData.get('password'),
+                role: formData.get('role')
+            };
+
+            if (data.password.length < 8) {
+                errorDiv.textContent = 'Password must be at least 8 characters';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            btnText.textContent = 'Creating...';
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    closeModal('addUserModal');
+                    location.reload();
+                } else {
+                    errorDiv.textContent = result.message || 'Failed to create user';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btnText.textContent = 'Create User';
+                spinner.classList.add('hidden');
+            }
+        }
+
+        async function updateUserRole() {
+            const userId = document.getElementById('editRoleUserId').value;
+            const newRole = document.querySelector('input[name="newRole"]:checked').value;
+            const errorDiv = document.getElementById('editRoleError');
+            const btnText = document.getElementById('updateRoleBtnText');
+            const spinner = document.getElementById('updateRoleSpinner');
+
+            btnText.textContent = 'Updating...';
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/api/users/${userId}/role`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ role: newRole })
+                });
+
+                if (response.ok) {
+                    closeModal('editRoleModal');
+                    location.reload();
+                } else {
+                    const result = await response.json();
+                    errorDiv.textContent = result.message || 'Failed to update role';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btnText.textContent = 'Update Role';
+                spinner.classList.add('hidden');
+            }
+        }
+
+        async function deleteUser() {
+            const userId = document.getElementById('deleteUserId').value;
+            const errorDiv = document.getElementById('deleteUserError');
+            const btnText = document.getElementById('deleteUserBtnText');
+            const spinner = document.getElementById('deleteUserSpinner');
+
+            btnText.textContent = 'Deleting...';
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    closeModal('deleteModal');
+                    location.reload();
+                } else {
+                    const result = await response.json();
+                    errorDiv.textContent = result.message || 'Failed to delete user';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btnText.textContent = 'Delete User';
+                spinner.classList.add('hidden');
+            }
+        }
+
+        // Search and filter functionality
+        document.getElementById('searchInput').addEventListener('input', filterUsers);
+        document.getElementById('roleFilter').addEventListener('change', filterUsers);
+
+        function filterUsers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const roleFilter = document.getElementById('roleFilter').value;
+            const rows = document.querySelectorAll('#usersTableBody tr');
+
+            rows.forEach(row => {
+                const name = row.cells[0].textContent.toLowerCase();
+                const email = row.cells[1].textContent.toLowerCase();
+                const role = row.cells[2].textContent.trim();
+
+                const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
+                const matchesRole = roleFilter === '' || role === roleFilter;
+
+                row.style.display = matchesSearch && matchesRole ? '' : 'none';
+            });
+        }
+
+        // Close modals on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+                    if (!modal.classList.contains('hidden')) {
+                        modal.classList.add('hidden');
+                        document.body.style.overflow = 'auto';
+                    }
+                });
+            }
+        });
+
+        // Close modals on backdrop click
+        document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = 'auto';
+                }
+            });
+        });
+
+        function checkAdminAndShowLink() {
+            const userRole = localStorage.getItem('user_role') || '';
+            const isAdmin = localStorage.getItem('is_admin');
+            const isAdminUser = (isAdmin === 'true') || userRole === 'ROLE_ADMIN' || userRole === 'ADMIN';
+            const userLink = document.getElementById('userManagementLink');
+            if (userLink && isAdminUser) {
+                userLink.style.display = 'flex';
+            }
+        }
+        checkAdminAndShowLink();
+        setTimeout(checkAdminAndShowLink, 100);
+    </script>
+</body>
+</html>

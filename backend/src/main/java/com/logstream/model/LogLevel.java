@@ -1,5 +1,5 @@
 package com.logstream.model;
 
 public enum LogLevel {
-    DEBUG, INFO, WARN, ERROR, FATAL
+    TRACE, DEBUG, INFO, WARN, ERROR
 }

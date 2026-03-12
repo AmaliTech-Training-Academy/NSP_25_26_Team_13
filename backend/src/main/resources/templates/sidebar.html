@@ -1,0 +1,39 @@
+<div th:fragment="sidebar" id="sidebar" class="fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white flex-col z-50">
+    <div class="p-4 border-b border-slate-700">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <i class="fas fa-stream text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold">LogStream</h1>
+                <p class="text-xs text-slate-400">Log Management</p>
+            </div>
+        </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+        <a href="/" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" data-page="/">
+            <i class="fas fa-home w-6"></i>Dashboard
+        </a>
+        <a href="/logs" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" data-page="/logs">
+            <i class="fas fa-list w-6"></i>Logs
+        </a>
+        <a href="/analytics" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" data-page="/analytics">
+            <i class="fas fa-chart-bar w-6"></i>Analytics
+        </a>
+        <a href="/retention" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" data-page="/retention">
+            <i class="fas fa-cog w-6"></i>Retention
+        </a>
+        <a href="/users" id="userManagementLink" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" data-page="/users" th:if="${isAdmin}">
+            <i class="fas fa-users w-6"></i>User Management
+        </a>
+    </nav>
+    <div class="p-4 border-t border-slate-700">
+        <div class="bg-slate-800 rounded-lg p-3 mb-3">
+            <p class="text-xs text-slate-400">System Status</p>
+            <p class="text-sm text-green-400"><i class="fas fa-circle text-xs mr-1"></i>Operational</p>
+        </div>
+        <a href="/logout" onclick="localStorage.removeItem('jwt_token'); localStorage.removeItem('user_email'); localStorage.removeItem('user_role'); localStorage.removeItem('is_admin');" class="flex items-center px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
+            <i class="fas fa-sign-out-alt w-6"></i>Logout
+        </a>
+    </div>
+</div>
