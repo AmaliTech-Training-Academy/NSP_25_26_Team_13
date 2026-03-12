@@ -72,14 +72,4 @@ public class LogController {
         return ResponseEntity.ok(searchService.searchLogs(request));
     }
 
-    @GetMapping("/analytics")
-    public ResponseEntity<AnalyticsResponse> getAnalytics(
-            @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate) {
-        return ResponseEntity.ok(null/*analyticsService.getAnalytics(startDate, endDate)*/);
-    }
-
-    // TODO: Add GET /api/logs/{id} endpoint
-    // TODO: Add DELETE /api/logs/{id} endpoint (admin only)
-    // TODO: Add GET /api/logs/stream (SSE endpoint for real-time log tailing)
 }

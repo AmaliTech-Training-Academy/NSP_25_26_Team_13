@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<head th:replace="layout :: head">
+<head th:replace="~{layout :: head}">
     <title>Edit Retention Policy - LogStream</title>
 </head>
 <body>
@@ -42,5 +42,11 @@
             </div>
         </div>
     </main>
+    <script>
+        // Clear URL query params without reload after page loads
+        if (window.location.search) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    </script>
 </body>
 </html>

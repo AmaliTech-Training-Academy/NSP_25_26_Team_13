@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -33,8 +35,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(customAccessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/logs/**").permitAll()
+                        .requestMatchers("/api/logs", "/api/logs/batch").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/health/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
@@ -42,11 +45,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/retention/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                        .requestMatchers("/", "/dashboard", "/logs", "/analytics").permitAll()
-                        .requestMatchers("/retention/**", "/logs/import/**").hasRole("ADMIN")
-                        .anyRequest().permitAll())
+                        .requestMatchers("/login", "/logout-page", "/logout", "/404", "/access-denied", "/signup").permitAll()
+                        .requestMatchers("/**").permitAll()
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(sm -> sm
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -23,13 +23,16 @@
         <a href="/retention" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" data-page="/retention">
             <i class="fas fa-cog w-6"></i>Retention
         </a>
+        <a href="/users" id="userManagementLink" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" data-page="/users" th:if="${isAdmin}">
+            <i class="fas fa-users w-6"></i>User Management
+        </a>
     </nav>
     <div class="p-4 border-t border-slate-700">
         <div class="bg-slate-800 rounded-lg p-3 mb-3">
             <p class="text-xs text-slate-400">System Status</p>
             <p class="text-sm text-green-400"><i class="fas fa-circle text-xs mr-1"></i>Operational</p>
         </div>
-        <a href="/logout" onclick="localStorage.removeItem('jwt_token'); localStorage.removeItem('user_email'); localStorage.removeItem('user_role');" class="flex items-center px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
+        <a href="/logout" onclick="localStorage.removeItem('jwt_token'); localStorage.removeItem('user_email'); localStorage.removeItem('user_role'); localStorage.removeItem('is_admin');" class="flex items-center px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
             <i class="fas fa-sign-out-alt w-6"></i>Logout
         </a>
     </div>
