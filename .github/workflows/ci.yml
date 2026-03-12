@@ -690,35 +690,13 @@ jobs:
           echo "DE_ECR=${BASE}/logstream-prod-data-engineering" >> $GITHUB_OUTPUT
           echo "MB_ECR=${BASE}/logstream-prod-metabase" >> $GITHUB_OUTPUT
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: '1.7.0'
-
-      - name: Terraform Init (prod)
-        working-directory: devops/terraform
-        run: terraform init -backend-config=envs/prod/backend.hcl
-
-      - name: Terraform Plan (prod)
-        working-directory: devops/terraform
-        env:
-          TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET_PROD }}
+      - name: Ensure ECR repositories exist
         run: |
-          terraform plan \
-            -var-file=prod.tfvars \
-            -var="aws_account_id=${{ env.AWS_ACCOUNT_ID }}" \
-            -out=tfplan-prod
-
-      - name: Terraform Apply (prod)
-        working-directory: devops/terraform
-        env:
-          TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET_PROD }}
-        run: terraform apply -auto-approve tfplan-prod
-
-      - name: Get prod ALB DNS
-        id: alb
-        working-directory: devops/terraform
-        run: echo "PROD_ALB=$(terraform output -raw alb_dns_name)" >> $GITHUB_OUTPUT
+          for REPO in logstream-prod-backend logstream-prod-data-engineering logstream-prod-metabase; do
+            aws ecr describe-repositories --repository-names $REPO --region ${{ env.AWS_REGION }} 2>/dev/null || \
+              aws ecr create-repository --repository-name $REPO --region ${{ env.AWS_REGION }} --image-scanning-configuration scanOnPush=true
+            echo "$REPO ✅"
+          done
 
       - name: Build & push backend (prod)
         uses: docker/build-push-action@v6
@@ -801,6 +779,24 @@ jobs:
             --service logstream-prod-metabase \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
+
+      - name: Get prod ALB DNS
+        id: alb
+        run: |
+          ALB_ARN=$(aws elbv2 describe-load-balancers \
+            --region ${{ env.AWS_REGION }} \
+            --query "LoadBalancers[?contains(LoadBalancerName, 'logstream-prod')].LoadBalancerArn" \
+            --output text | head -1)
+          if [ -n "$ALB_ARN" ]; then
+            ALB_DNS=$(aws elbv2 describe-load-balancers \
+              --load-balancer-arns "$ALB_ARN" \
+              --region ${{ env.AWS_REGION }} \
+              --query 'LoadBalancers[0].DNSName' \
+              --output text)
+            echo "PROD_ALB=$ALB_DNS" >> $GITHUB_OUTPUT
+          else
+            echo "PROD_ALB=<ALB-not-found>" >> $GITHUB_OUTPUT
+          fi
 
       - name: Deployment summary — PROD
         run: |
