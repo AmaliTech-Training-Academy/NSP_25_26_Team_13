@@ -9,10 +9,10 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Seed retention policies
 INSERT INTO retention_policies (id, service_name, retention_days, archive_enabled)
-VALUES (1, 'ERROR', 90, false),
-       (2, 'WARN', 30, false),
-       (3, 'INFO', 14, false),
-       (4, 'DEBUG', 7, false)
+VALUES (1, 'payment-service', 90, false),
+       (2, 'api-gateway', 30, false),
+       (3, 'user-service', 14, false),
+       (4, 'auth-service', 7, false)
 ON CONFLICT (id) DO NOTHING;
 
 
