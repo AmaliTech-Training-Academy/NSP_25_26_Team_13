@@ -26,6 +26,13 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output
+import os
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
 
 from config.config import (
     SERVICES, LEVELS, LEVEL_WEIGHTS, _HOUR_WEIGHTS, MESSAGE_MAP,
@@ -235,6 +242,35 @@ def load_df(path):
         raw = pd.read_json(path)
     else:
         raw = pd.read_csv(path)
+    df, report = validate(raw)
+    if not report.passed():
+        print(f"[logstream] Validation: {report.invalid_rows:,} rows dropped")
+    return df
+
+
+def load_df_postgres(days_back:int=30)->pd.DataFrame:
+    dsn=(
+        f"postgresql://{os.environ['DB_USERNAME']}:{os.environ['DB_PASSWORD']}"
+        f"@{os.environ['DB_URL']}"
+        f":5432/{os.environ['DB_NAME']}"
+    )
+    engine = create_engine(dsn, pool_pre_ping=True)
+    query =f""" 
+    SELECT
+            id,
+            timestamp,
+            level,
+            source,
+            message,
+            service_name,
+            created_at
+        FROM log_entries
+        WHERE timestamp >= NOW() - INTERVAL '{days_back} days'
+        ORDER BY timestamp ASC
+    """
+    raw = pd.read_sql(query, engine)
+    raw["timestamp"] = pd.to_datetime(raw["timestamp"], utc=True).dt.tz_localize(None)
+    raw["created_at"] = pd.to_datetime(raw["created_at"], utc=True).dt.tz_localize(None)
     df, report = validate(raw)
     if not report.passed():
         print(f"[logstream] Validation: {report.invalid_rows:,} rows dropped")
@@ -1115,6 +1151,7 @@ def build_app(df: pd.DataFrame) -> Dash:
                     "fontFamily": MONO, "textAlign": "right",
                 }),
                 dcc.Interval(id="clock-tick", interval=1000, n_intervals=0),
+                dcc.Interval(id="data-refresh", interval=60_000,     n_intervals=0),
             ]),
         ], style={
             "display": "flex", "justifyContent": "space-between",
@@ -1288,9 +1325,11 @@ def build_app(df: pd.DataFrame) -> Dash:
         Output("g-silent",     "figure"),
         Output("health-table", "children"),
         Output("error-feed",   "children"),
-        Input("svc-filter",    "value"),
+        Input("svc-filter",   "value"),
+        Input("data-refresh", "n_intervals"),
     )
-    def update_all(svc_val):
+    def update_all(svc_val,_refresh):
+        df = load_df_postgres()   
         s = _svc(svc_val)
         return (
             chart_volume_timeline(df, svc=s),
@@ -1317,7 +1356,7 @@ def build_app(df: pd.DataFrame) -> Dash:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="LogStream Observability Dashboard")
+    """     parser = argparse.ArgumentParser(description="LogStream Observability Dashboard")
     parser.add_argument("--data", default=None, help=".json or .csv log file path")
     parser.add_argument("--port", type=int, default=8050)
     parser.add_argument("--host", default="127.0.0.1")
@@ -1331,6 +1370,19 @@ if __name__ == "__main__":
     err_n = int((df['level'] == 'ERROR').sum())
     print(f"[logstream] Errors   : {err_n:,}  ({err_n/len(df)*100:.1f}%)")
     print(f"\n[logstream] →  http://{args.host}:{args.port}\n")
+
+    app = build_app(df)
+    app.run(debug=False, host=args.host, port=args.port) 
+    """
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8050)
+    parser.add_argument("--host", default="127.0.0.1")
+    args = parser.parse_args()
+
+    print("[logstream] Connecting to Postgres...")
+    df = load_df_postgres() 
+    print(f"[logstream] Loaded {len(df):,} records")
 
     app = build_app(df)
     app.run(debug=False, host=args.host, port=args.port)
