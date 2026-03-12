@@ -8,7 +8,7 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- Seed retention policies
-INSERT INTO retention_policies ( service_name, retention_days, archive_enabled)
+INSERT INTO retention_policies (service_name, retention_days, archive_enabled)
 VALUES ('auth-service', 90, false),
        ('api-gateway', 30, false),
        ('payment-service', 14, false),
