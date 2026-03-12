@@ -48,6 +48,11 @@ backend_cpu           = 512
 backend_memory        = 1024
 backend_desired_count = 2
 
+# ── ECS — Data Engineering ────────────────────────────────
+data_engineering_cpu    = 256
+data_engineering_memory = 512
+api_url_batch           = "http://PLACEHOLDER-will-update-after-alb-created/api/logs/batch"
+
 # ── ECS — Metabase ────────────────────────────────────────
 metabase_port          = 3000
 metabase_cpu           = 1024

@@ -32,7 +32,8 @@ tfplan
 # example.tfvars IS committed (safe template)
 dev.tfvars
 staging.tfvars
-# prod.tfvars has no secrets (jwt_secret passed via TF_VAR_jwt_secret) — committed intentionally
+prod.tfvars 
+# has no secrets (jwt_secret passed via TF_VAR_jwt_secret) — committed intentionally
 
 # Override files
 override.tf
