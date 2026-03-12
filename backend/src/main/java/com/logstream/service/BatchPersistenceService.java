@@ -9,6 +9,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -69,6 +70,7 @@ public class BatchPersistenceService {
         policy.setServiceName(serviceName);
         policy.setRetentionDays(30);
         policy.setArchiveEnabled(false);
+        policy.setCreatedAt(Instant.now());
         return policy;
     }
 }

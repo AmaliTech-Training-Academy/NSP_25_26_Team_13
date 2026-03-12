@@ -82,6 +82,7 @@ public class IngestionService {
         policy.setServiceName(serviceName);
         policy.setRetentionDays(30);
         policy.setArchiveEnabled(false);
+        policy.setCreatedAt(Instant.now());
         retentionPolicyRepository.save(policy);
     }
 
