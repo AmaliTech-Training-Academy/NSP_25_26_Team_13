@@ -21,7 +21,7 @@ public class LogEntryCSV {
     @CsvBindByName(column = "metadata")
     private String metadata;
 
-    @CsvBindByName(column = "created_at")
-    private String createdAt;
+    @CsvBindByName(column = "timestamp")
+    private String timestamp;
 
 }

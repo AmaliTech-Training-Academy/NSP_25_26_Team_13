@@ -19,6 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 @Service
@@ -67,11 +70,22 @@ public class IngestionService {
     private LogEntry mapToEntity(LogEntryRequest request) {
         return LogEntry.builder()
                 .serviceName(request.getServiceName())
-                .timestamp(Instant.now())
+                .timestamp(parseTimestamp(request.getTimestamp()))
                 .level(LogLevel.valueOf(request.getLevel()))
                 .message(request.getMessage())
                 .source(request.getSource())
                 .build();
+    }
+
+    private Instant parseTimestamp(String timestamp) {
+        if (timestamp == null || timestamp.isBlank()) {
+            return Instant.now();
+        }
+        try {
+            return Instant.parse(timestamp);
+        } catch (DateTimeParseException e) {
+            return LocalDateTime.parse(timestamp).toInstant(ZoneOffset.UTC);
+        }
     }
 
     private void createRetentionPolicyFromLogEntry(String serviceName) {
@@ -82,6 +96,7 @@ public class IngestionService {
         policy.setServiceName(serviceName);
         policy.setRetentionDays(30);
         policy.setArchiveEnabled(false);
+        policy.setCreatedAt(Instant.now());
         retentionPolicyRepository.save(policy);
     }
 
