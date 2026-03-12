@@ -1,7 +1,0 @@
-# Gitleaks ignore rules
-# Syntax: path:rule_id  (omit rule_id to ignore all rules for that path)
-# Glob patterns are supported.
-
-# Ignore all markdown files — docs may contain example tokens/keys
-*.md
-**/*.md

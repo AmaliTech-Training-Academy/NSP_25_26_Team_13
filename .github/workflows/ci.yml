@@ -31,7 +31,12 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
 
       - name: Gitleaks scan
-        run: gitleaks detect --source . --redact -v --gitleaks-ignore-path=.gitleaksignore
+        run: |
+          gitleaks detect \
+            --source . \
+            --redact \
+            -v \
+            --exclude-paths=".*\.md$"
 
   # ─────────────────────────────────────────────────────────
   # JOB 1: Backend — Lint & Checkstyle
