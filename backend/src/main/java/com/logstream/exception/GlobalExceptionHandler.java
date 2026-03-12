@@ -100,6 +100,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.BAD_REQUEST.value()).build());
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorizedException(UnauthorizedException ex) {
+        log.warn("Unauthorized: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse.builder().message(ex.getMessage()).status(HttpStatus.UNAUTHORIZED.value()).build());
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoStaticResource(NoResourceFoundException ex) {
         log.debug("Static resource not found: {}", ex.getMessage());

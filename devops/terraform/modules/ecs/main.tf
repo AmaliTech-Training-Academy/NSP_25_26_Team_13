@@ -137,10 +137,11 @@ resource "aws_ecs_task_definition" "data_engineering" {
     essential = true
 
     environment = [
-      { name = "DB_HOST", value = var.db_host },
-      { name = "DB_PORT", value = "5432" },
-      { name = "DB_NAME", value = var.db_name },
+      { name = "DB_HOST",        value = var.db_host },
+      { name = "DB_PORT",        value = "5432" },
+      { name = "DB_NAME",        value = var.db_name },
       { name = "PYTHONUNBUFFERED", value = "1" },
+      { name = "API_URL_BATCH",  value = var.api_url_batch },
     ]
 
     secrets = [
