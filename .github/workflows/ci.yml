@@ -20,6 +20,9 @@ env:
   AWS_REGION: 'eu-west-1'
   AWS_ACCOUNT_ID: '205930639565'
 
+permissions:
+  contents: read
+
 jobs:
 
   # ─────────────────────────────────────────────────────────
