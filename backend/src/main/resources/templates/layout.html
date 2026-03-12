@@ -3,7 +3,8 @@
 <head th:fragment="head">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title} ?: 'LogStream'">LogStream</title>
+    <meta name="description" content="LogStream - Log Management System">
+    <title th:text="${pageTitle} ?: 'LogStream'">LogStream</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -56,54 +57,12 @@
     <!-- Mobile Header -->
     <div th:fragment="mobile-header" class="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-            <i class="fas fa-stream text-xl"></i>
+            <i class="fas fa-stream text-xl" aria-hidden="true"></i>
             <span class="font-bold text-lg">LogStream</span>
         </div>
-        <button id="mobileMenuBtn" class="p-2 hover:bg-slate-800 rounded-lg">
-            <i class="fas fa-bars text-xl"></i>
+        <button id="mobileMenuBtn" class="p-2 hover:bg-slate-800 rounded-lg" aria-label="Toggle menu">
+            <i class="fas fa-bars text-xl" aria-hidden="true"></i>
         </button>
-    </div>
-
-    <!-- Sidebar -->
-    <div th:fragment="sidebar" id="sidebar" class="flex md:flex fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white flex-col z-50 transition-all duration-300">
-        <div class="p-6 border-b border-slate-700">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-stream text-xl"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold">LogStream</h1>
-                    <p class="text-xs text-slate-400">Log Management</p>
-                </div>
-            </div>
-        </div>
-        <nav class="flex-1 p-4 space-y-1">
-            <a href="/" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white" 
-               data-page="/">
-                <i class="fas fa-home w-6"></i>Dashboard
-            </a>
-            <a href="/logs" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               data-page="/logs">
-                <i class="fas fa-list w-6"></i>Logs
-            </a>
-            <a href="/analytics" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               data-page="/analytics">
-                <i class="fas fa-chart-bar w-6"></i>Analytics
-            </a>
-            <a href="/retention" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-slate-300 hover:text-white"
-               data-page="/retention">
-                <i class="fas fa-cog w-6"></i>Retention Policies
-            </a>
-        </nav>
-        <div class="p-4 border-t border-slate-700">
-            <div class="bg-slate-800 rounded-lg p-3 mb-3">
-                <p class="text-xs text-slate-400">System Status</p>
-                <p class="text-sm text-green-400"><i class="fas fa-circle text-xs mr-1"></i>All Systems Operational</p>
-            </div>
-            <a href="/logout" class="flex items-center px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition">
-                <i class="fas fa-sign-out-alt w-6"></i>Logout
-            </a>
-        </div>
     </div>
 
     <!-- Header -->
@@ -115,8 +74,8 @@
                     <p class="text-sm text-gray-500 mt-1">Manage your logs and analytics</p>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm">
-                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm" aria-label="Refresh page">
+                        <i class="fas fa-sync-alt mr-2" aria-hidden="true"></i>Refresh
                     </button>
                 </div>
             </div>
@@ -125,17 +84,23 @@
 
     <!-- Alerts -->
     <div th:fragment="alerts">
-        <div th:if="${success}" class="md:ml-64 bg-green-50 border-l-4 border-green-500 text-green-700 px-4 py-3 m-4 rounded-r shadow-sm">
+        <div th:if="${success}" class="md:ml-64 bg-green-50 border-l-4 border-green-500 text-green-700 px-4 py-3 m-4 rounded-r shadow-sm relative" role="alert">
             <div class="flex items-center">
-                <i class="fas fa-check-circle mr-3"></i>
+                <i class="fas fa-check-circle mr-3" aria-hidden="true"></i>
                 <span th:text="${success}"></span>
             </div>
+            <button type="button" class="absolute top-0 right-0 p-2" onclick="this.parentElement.remove()" aria-label="Close alert">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
         </div>
-        <div th:if="${error}" class="md:ml-64 bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 m-4 rounded-r shadow-sm">
+        <div th:if="${error}" class="md:ml-64 bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 m-4 rounded-r shadow-sm relative" role="alert">
             <div class="flex items-center">
-                <i class="fas fa-exclamation-circle mr-3"></i>
+                <i class="fas fa-exclamation-circle mr-3" aria-hidden="true"></i>
                 <span th:text="${error}"></span>
             </div>
+            <button type="button" class="absolute top-0 right-0 p-2" onclick="this.parentElement.remove()" aria-label="Close alert">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
         </div>
     </div>
 
@@ -197,7 +162,6 @@
                     link.classList.add('active');
                 }
             });
-
         });
     </script>
 </body>

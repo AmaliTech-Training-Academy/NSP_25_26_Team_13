@@ -28,4 +28,6 @@ public class RegisterRequest {
             message = "Password must be at least 8 characters long and contain both letters and numbers"
     )
     private String password;
+
+    private String role;
 }

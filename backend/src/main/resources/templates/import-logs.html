@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
-<head th:replace="layout :: head">
+<head th:replace="~{layout :: head}">
     <title>Import Logs - LogStream</title>
 </head>
 <body>
@@ -10,7 +10,7 @@
 
     <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
         <div class="max-w-2xl mx-auto">
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="bg-white rounded-lg shadow p-6" th:classappend="${!isAdmin} ? 'opacity-50 pointer-events-none' : ''">
                 <h2 class="text-2xl font-bold text-gray-900 mb-6">Import Logs from CSV</h2>
                 
                 <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
