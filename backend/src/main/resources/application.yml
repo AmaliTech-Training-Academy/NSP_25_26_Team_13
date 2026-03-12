@@ -24,6 +24,15 @@ spring:
     prefix: classpath:/templates/
     suffix: .html
 
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health
+    endpoint:
+        health:
+            show-details: never
+
 logging:
   level:
     org:
