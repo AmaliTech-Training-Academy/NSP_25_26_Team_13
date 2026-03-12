@@ -36,6 +36,91 @@ public class AnalyticsService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Returns error rate time series for ALL services aggregated by hour or day.
+     * Returns a map where key is service name and value is list of ErrorRateResponse with time-based error rates.
+     * Time range defaults to last 7 days if not specified.
+     */
+    public Map<String, List<ErrorRateResponse>> getAllServicesErrorRateOverTime(String granularity,
+                                                                                Instant startTime, Instant endTime) {
+        if (!VALID_GRANULARITIES.contains(granularity)) {
+            throw new IllegalArgumentException(
+                    "Granularity must be 'hour' or 'day'");
+        }
+
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = startTime != null ? startTime
+                : end.minus(DEFAULT_VOLUME_DAYS, ChronoUnit.DAYS);
+
+        List<Object[]> errorResults = "hour".equals(granularity)
+                ? logEntryRepository.findAllServicesHourlyErrors(start, end)
+                : logEntryRepository.findAllServicesDailyErrors(start, end);
+
+        List<Object[]> volumeResults = "hour".equals(granularity)
+                ? logEntryRepository.findAllServicesHourlyVolume(start, end)
+                : logEntryRepository.findAllServicesDailyVolume(start, end);
+
+        Map<String, Map<Instant, Long>> errorData = new LinkedHashMap<>();
+        for (Object[] row : errorResults) {
+            Instant bucket = toInstant(row[0]);
+            String service = (String) row[1];
+            Long count = ((Number) row[2]).longValue();
+            errorData.computeIfAbsent(service, k -> new LinkedHashMap<>())
+                    .put(bucket, count);
+        }
+
+        Map<String, Map<Instant, Long>> volumeData = new LinkedHashMap<>();
+        for (Object[] row : volumeResults) {
+            Instant bucket = toInstant(row[0]);
+            String service = (String) row[1];
+            Long count = ((Number) row[2]).longValue();
+            volumeData.computeIfAbsent(service, k -> new LinkedHashMap<>())
+                    .put(bucket, count);
+        }
+
+        Set<String> allServices = new LinkedHashSet<>();
+        allServices.addAll(errorData.keySet());
+        allServices.addAll(volumeData.keySet());
+
+        Map<String, List<ErrorRateResponse>> result = new LinkedHashMap<>();
+        for (String service : allServices) {
+            Map<Instant, Long> errorsByBucket = errorData.getOrDefault(service, new HashMap<>());
+            Map<Instant, Long> totalsByBucket = volumeData.getOrDefault(service, new HashMap<>());
+            
+            Set<Instant> allBuckets = new LinkedHashSet<>();
+            allBuckets.addAll(errorsByBucket.keySet());
+            allBuckets.addAll(totalsByBucket.keySet());
+            
+            ChronoUnit unit = "hour".equals(granularity) ? ChronoUnit.HOURS : ChronoUnit.DAYS;
+            Instant truncatedStart = truncate(start, granularity);
+            for (Instant current = truncatedStart; !current.isAfter(end); current = current.plus(1, unit)) {
+                allBuckets.add(current);
+            }
+            
+            List<ErrorRateResponse> responses = new ArrayList<>();
+            for (Instant bucket : allBuckets) {
+                long errorCount = errorsByBucket.getOrDefault(bucket, 0L);
+                long totalCount = totalsByBucket.getOrDefault(bucket, 0L);
+                double rate = totalCount > 0
+                        ? BigDecimal.valueOf(errorCount * 100.0 / totalCount)
+                        .setScale(2, RoundingMode.HALF_UP)
+                        .doubleValue()
+                        : 0.0;
+                
+                responses.add(ErrorRateResponse.builder()
+                        .service(service)
+                        .timestamp(bucket)
+                        .errorRate(rate)
+                        .errorCount(errorCount)
+                        .totalCount(totalCount)
+                        .build());
+            }
+            result.put(service, responses);
+        }
+
+        return result;
+    }
+
     private ErrorRateResponse buildErrorRate(String service, Map<String, Long> errorMap, Map<String, Long> totalMap) {
         long errorCount = errorMap.getOrDefault(service, 0L);
         long totalCount = totalMap.getOrDefault(service, 0L);

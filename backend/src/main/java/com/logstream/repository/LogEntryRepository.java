@@ -45,6 +45,20 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
     @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.createdAt >= :since GROUP BY l.serviceName")
     List<Object[]> countByServiceAndCreatedAtAfter(@Param("since") Instant since);
 
+    @Query(value = "SELECT date_trunc('hour', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE level = 'ERROR' AND created_at >= :start AND created_at <= :endTime "
+            + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> findAllServicesHourlyErrors(
+            @Param("start") Instant start,
+            @Param("endTime") Instant end);
+
+    @Query(value = "SELECT date_trunc('day', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE level = 'ERROR' AND created_at >= :start AND created_at <= :endTime "
+            + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> findAllServicesDailyErrors(
+            @Param("start") Instant start,
+            @Param("endTime") Instant end);
+
     @Query("SELECT l.message, COUNT(l) AS cnt FROM LogEntry l "
             + "WHERE l.level = 'ERROR' AND l.serviceName = :serviceName "
             + "AND l.createdAt >= :start AND l.createdAt <= :end "
