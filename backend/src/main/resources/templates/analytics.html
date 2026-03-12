@@ -134,7 +134,18 @@
         Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
         Chart.defaults.color = '#6b7280';
         
-        // Error Rate Chart with gradient
+        // Format timestamp to simple format
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const month = date.toLocaleString('en-US', { month: 'short' });
+            const day = date.getDate();
+            const hour = date.getHours();
+            const minute = date.getMinutes();
+            return hour === 0 && minute === 0 ? `${month} ${day}` : `${month} ${day} ${hour}:${minute.toString().padStart(2, '0')}`;
+        }
+        
+        // Error Rate Chart
         const errorRateCtx = document.getElementById('errorRateChart').getContext('2d');
         const errorRates = [[${errorRates}]];
         
@@ -160,9 +171,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false
-                    },
+                    legend: { display: false },
                     tooltip: {
                         backgroundColor: 'rgba(0, 0, 0, 0.8)',
                         titleFont: { size: 14, weight: 'bold' },
@@ -180,82 +189,71 @@
                     y: {
                         beginAtZero: true,
                         max: 100,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: { callback: function(value) { return value + '%'; } }
                     },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
+                    x: { grid: { display: false } }
                 }
             }
         });
-
-        // Format timestamp to simple format
-        function formatTimestamp(timestamp) {
-            if (!timestamp) return '';
-            const date = new Date(timestamp);
-            const month = date.toLocaleString('en-US', { month: 'short' });
-            const day = date.getDate();
-            const hour = date.getHours();
-            const minute = date.getMinutes();
-            return hour === 0 && minute === 0 ? `${month} ${day}` : `${month} ${day} ${hour}:${minute.toString().padStart(2, '0')}`;
-        }
         
-        // Error Rate Chart - support all services over time
-        const errorRateCtx = document.getElementById('errorRateChart').getContext('2d');
-        const currentErrorRates = [[${errorRates}]];
-        const allServicesErrorRate = [[${allServicesErrorRate}]];
+        // Log Volume Chart
+        const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+        const allServicesLogVolume = [[${allServicesLogVolume}]];
+        const singleServiceLogVolume = [[${logVolume}]];
         
-        const errorColors = [
-            'rgba(239, 68, 68, 1)',   // red
-            'rgba(245, 158, 11, 1)',  // yellow
-            'rgba(16, 185, 129, 1)',  // green
-            'rgba(139, 92, 246, 1)',  // purple
-            'rgba(59, 130, 246, 1)',  // blue
-            'rgba(236, 72, 153, 1)',  // pink
-            'rgba(6, 182, 212, 1)'    // cyan
+        const volumeColors = [
+            'rgba(59, 130, 246, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(245, 158, 11, 1)',
+            'rgba(139, 92, 246, 1)',
+            'rgba(236, 72, 153, 1)',
+            'rgba(6, 182, 212, 1)',
+            'rgba(249, 115, 22, 1)'
         ];
         
-        if (allServicesErrorRate && Object.keys(allServicesErrorRate).length > 0) {
-            const services = Object.keys(allServicesErrorRate);
-            const firstServiceData = allServicesErrorRate[services[0]];
-            const labels = firstServiceData.map(e => formatTimestamp(e.timestamp));
+        if (allServicesLogVolume && Object.keys(allServicesLogVolume).length > 0) {
+            const services = Object.keys(allServicesLogVolume);
+            const firstServiceData = allServicesLogVolume[services[0]];
+            const labels = firstServiceData.map(v => formatTimestamp(v.timestamp));
             
             const datasets = services.map((service, index) => ({
                 label: service,
-                data: allServicesErrorRate[service].map(e => e.errorRate),
-                borderColor: errorColors[index % errorColors.length],
-                backgroundColor: 'transparent',
+                data: allServicesLogVolume[service].map(v => v.count),
+                borderColor: volumeColors[index % volumeColors.length],
+                backgroundColor: volumeColors[index % volumeColors.length].replace('1)', '0.1)'),
                 borderWidth: 2,
                 fill: false,
                 tension: 0.4,
                 pointRadius: 2,
-                pointBackgroundColor: errorColors[index % errorColors.length]
+                pointBackgroundColor: volumeColors[index % volumeColors.length]
             }));
             
-            new Chart(errorRateCtx, {
+            new Chart(volumeCtx, {
                 type: 'line',
                 data: { labels: labels, datasets: datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: true, position: 'bottom' },
+                        legend: { 
+                            display: true, 
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 8,
+                                boxHeight: 8,
+                                padding: 8,
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
                         tooltip: {
                             backgroundColor: 'rgba(0, 0, 0, 0.8)',
                             padding: 12,
                             cornerRadius: 8,
                             callbacks: {
                                 label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString();
                                 }
                             }
                         }
@@ -263,9 +261,13 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            max: 100,
                             grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                            ticks: { callback: function(value) { return value + '%'; } }
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
+                                    return value;
+                                }
+                            }
                         },
                         x: {
                             grid: { display: false },
@@ -274,55 +276,6 @@
                     }
                 }
             });
-        } else {
-            const errorGradient = errorRateCtx.createLinearGradient(0, 0, 0, 250);
-            errorGradient.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
-            errorGradient.addColorStop(1, 'rgba(239, 68, 68, 0.1)');
-            
-            new Chart(errorRateCtx, {
-                type: 'bar',
-                data: {
-                    labels: currentErrorRates.map(e => e.service),
-                    datasets: [{
-                        label: 'Error Rate (%)',
-                        data: currentErrorRates.map(e => e.errorRate),
-                        backgroundColor: errorGradient,
-                        borderColor: 'rgba(239, 68, 68, 1)',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        barThickness: 40
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleFont: { size: 14, weight: 'bold' },
-                            bodyFont: { size: 13 },
-                            padding: 12,
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Error Rate: ' + context.parsed.y.toFixed(2) + '%';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                            ticks: { callback: function(value) { return value + '%'; } }
-                        },
-                        x: { grid: { display: false } }
-                    }
-                }
-            });
-        }
         } else if (singleServiceLogVolume && singleServiceLogVolume.length > 0) {
             const volumeGradient = volumeCtx.createLinearGradient(0, 0, 0, 250);
             volumeGradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');

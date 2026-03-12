@@ -23,6 +23,5 @@ public class ErrorRateResponse {
     @Schema(description = "Total number of logs in the last 24 hours", example = "1000")
     private long totalCount;
 
-    @Schema(description = "Timestamp for time series data", example = "2024-01-15T10:00:00Z")
-    private Instant timestamp;
+
 }
