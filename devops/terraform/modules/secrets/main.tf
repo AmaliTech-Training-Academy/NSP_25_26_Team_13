@@ -22,11 +22,6 @@ resource "aws_secretsmanager_secret_version" "db" {
     host     = var.db_host     # filled after RDS is created
     port     = "5432"
   })
-
-  lifecycle {
-    # Prevent Terraform from overwriting a password changed outside Terraform
-    ignore_changes = [secret_string]
-  }
 }
 
 # ── Secrets Manager — JWT secret ───────────────────────────────────────────

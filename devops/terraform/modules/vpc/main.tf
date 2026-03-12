@@ -139,13 +139,8 @@ resource "aws_security_group" "alb" {
     description = "HTTP from Internet"
   }
 
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS from Internet"
-  }
+  # Port 443 ingress removed — no HTTPS listener configured yet.
+  # Add back when ACM certificate and HTTPS listener are in place.
 
   # Metabase port (restrict to trusted CIDRs in prod)
   ingress {

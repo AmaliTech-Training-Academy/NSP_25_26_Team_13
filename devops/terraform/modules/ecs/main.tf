@@ -80,13 +80,8 @@ resource "aws_ecs_task_definition" "backend" {
       }
     }
 
-    healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:${var.backend_port}/actuator/health || exit 1"]
-      interval    = 30
-      timeout     = 5
-      retries     = 3
-      startPeriod = 60
-    }
+    # No container-level healthCheck: eclipse-temurin:21-jre-alpine does not include curl.
+    # ALB target group health checks /actuator/health directly.
   }])
 
   tags = { Name = "${var.project_name}-${var.environment}-backend" }
@@ -189,10 +184,10 @@ resource "aws_ecs_task_definition" "metabase" {
     }]
 
     environment = [
-      { name = "MB_DB_TYPE", value = "postgres" },
-      { name = "MB_DB_HOST", value = var.db_host },
-      { name = "MB_DB_PORT", value = "5432" },
-      { name = "MB_DB_DBNAME", value = var.db_name },
+      { name = "MB_DB_TYPE",  value = "postgres" },
+      { name = "MB_DB_HOST",  value = var.db_host },
+      { name = "MB_DB_PORT",  value = "5432" },
+      { name = "MB_DB_DBNAME", value = "metabase" },   # Metabase must own its own DB, not share logstream_db
       { name = "MB_JETTY_PORT", value = tostring(var.metabase_port) },
     ]
 
@@ -210,13 +205,8 @@ resource "aws_ecs_task_definition" "metabase" {
       }
     }
 
-    healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:${var.metabase_port}/api/health || exit 1"]
-      interval    = 60
-      timeout     = 10
-      retries     = 3
-      startPeriod = 120
-    }
+    # No container-level healthCheck — metabase/metabase image does not guarantee curl.
+    # ALB target group health check hits /api/health directly.
   }])
 
   tags = { Name = "${var.project_name}-${var.environment}-metabase" }
@@ -262,7 +252,7 @@ resource "aws_cloudwatch_metric_alarm" "backend_5xx" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    LoadBalancer = split("/", split("loadbalancer/", var.alb_arn)[1])[0]
+    LoadBalancer = split("loadbalancer/", var.alb_arn)[1]
     TargetGroup  = split(":", var.backend_blue_tg_arn)[5]
   }
 }

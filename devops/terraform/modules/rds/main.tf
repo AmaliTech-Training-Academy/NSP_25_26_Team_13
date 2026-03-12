@@ -59,7 +59,7 @@ resource "aws_db_instance" "main" {
   maintenance_window      = "Mon:04:00-Mon:05:00"
 
   skip_final_snapshot       = var.environment != "prod"
-  final_snapshot_identifier = "${var.project_name}-${var.environment}-final-snapshot"
+  final_snapshot_identifier = var.environment == "prod" ? "${var.project_name}-${var.environment}-final-snapshot" : null
   deletion_protection       = var.db_deletion_protection
 
   performance_insights_enabled = true

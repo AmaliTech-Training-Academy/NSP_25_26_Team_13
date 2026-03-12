@@ -52,7 +52,7 @@ module "secrets" {
   environment  = var.environment
   db_username  = var.db_username
   db_name      = var.db_name
-  db_host      = try(module.rds.db_host, "pending")
+  db_host      = module.rds.db_host
   jwt_secret   = var.jwt_secret
 }
 
