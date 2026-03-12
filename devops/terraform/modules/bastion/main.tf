@@ -78,6 +78,13 @@ resource "aws_instance" "bastion" {
     encrypted             = true
   }
 
+  # Ignore AMI changes — the data source uses most_recent=true which Terraform
+  # defers to apply time, causing needless replacement on every apply.
+  # To upgrade the AMI deliberately: terraform taint module.bastion.aws_instance.bastion
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   tags = { Name = "${var.project_name}-${var.environment}-bastion" }
 }
 
