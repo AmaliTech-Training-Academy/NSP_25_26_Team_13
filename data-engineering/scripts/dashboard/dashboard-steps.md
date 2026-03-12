@@ -174,6 +174,17 @@ http://localhost:3000
   * `spike_ratio`: >3 → Red, >1.5 → Orange
 * Half-width
 
+
+CREATE OR REPLACE VIEW vw_errors_per_hour AS
+SELECT
+    DATE_TRUNC('hour', timestamp) AS hour,
+    service_name,
+    COUNT(*) FILTER (WHERE level = 'ERROR') AS error_count
+FROM log_entries
+WHERE timestamp >= NOW() - INTERVAL '24 hours'
+GROUP BY hour, service_name
+ORDER BY hour;
+
 **Panel C-2 — Mean Time Between Errors**
 
 * View: `vw_mtbe_per_service`
