@@ -9,128 +9,163 @@
     <div th:replace="~{layout :: alerts}"></div>
 
     <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Add Policy Form -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow p-6" th:classappend="${!isAdmin} ? 'opacity-50 pointer-events-none' : ''">
-                    <h2 class="text-lg font-bold text-gray-900 mb-4">Add New Policy</h2>
-                    <form id="addPolicyForm" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Service Name</label>
-                            <select id="serviceName" required
-                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
-                                <option value="">Select a service</option>
-                                <option th:each="service : ${services}" th:value="${service}" th:text="${service}"></option>
-                            </select>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h2 class="text-lg font-bold text-gray-900">Retention Policies</h2>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="Search services..."
+                                   class="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Retention Days</label>
-                            <input type="number" id="retentionDays" min="1" required
-                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="flex items-center">
-                                <input type="checkbox" id="archiveEnabled"
-                                       class="rounded border-gray-300 text-blue-600">
-                                <span class="ml-2 text-sm text-gray-700">Enable Archive</span>
-                            </label>
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
-                            <i class="fas fa-plus mr-2"></i>Add Policy
-                        </button>
-                    </form>
+                        <select id="archiveFilter" class="border border-gray-300 rounded-md text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All</option>
+                            <option value="true">Archive Enabled</option>
+                            <option value="false">Archive Disabled</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-
-            <!-- Policies Table -->
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h2 class="text-lg font-bold text-gray-900">Retention Policies</h2>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Service</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Days</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Archive</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                <tr th:each="policy : ${policies}" class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 text-sm text-gray-900" th:text="${policy.serviceName}"></td>
-                                    <td class="px-6 py-4 text-sm text-gray-900" th:text="${policy.retentionDays}"></td>
-                                    <td class="px-6 py-4 text-sm">
-                                        <span th:if="${policy.archiveEnabled}" class="text-green-600">
-                                            <i class="fas fa-check"></i>
-                                        </span>
-                                        <span th:unless="${policy.archiveEnabled}" class="text-gray-400">
-                                            <i class="fas fa-times"></i>
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 text-sm space-x-2">
-                                        <a th:href="@{/retention/edit/{serviceName}(serviceName=${policy.serviceName})}" 
-                                           class="text-blue-600 hover:text-blue-900"
-                                           th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <a href="#" class="text-red-600 hover:text-red-900" 
-                                           th:attr="onclick='openDeleteModal(\'' + ${policy.serviceName} + '\')'"
-                                           th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                <tr th:if="${#lists.isEmpty(policies)}">
-                                    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
-                                        No retention policies found
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="overflow-x-auto">
+                <table class="w-full" id="policiesTable">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTable(0)">
+                                Service <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase cursor-pointer hover:bg-gray-100" onclick="sortTable(1)">
+                                Days <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                                Archive
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200" id="tableBody">
+                        <tr th:each="policy : ${policies}" class="policy-row hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900 service-name" th:text="${policy.serviceName}"></td>
+                            <td class="px-6 py-4 text-sm text-gray-900 retention-days" th:text="${policy.retentionDays}"></td>
+                            <td class="px-6 py-4 text-sm">
+                                <span th:if="${policy.archiveEnabled}" class="archive-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check mr-1"></i>Enabled
+                                </span>
+                                <span th:unless="${policy.archiveEnabled}" class="archive-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    <i class="fas fa-times mr-1"></i>Disabled
+                                </span>
+                                <span class="hidden archive-value" th:text="${policy.archiveEnabled}"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm space-x-2">
+                                <a th:href="@{/retention/edit/{serviceName}(serviceName=${policy.serviceName})}" 
+                                   class="text-blue-600 hover:text-blue-900 inline-block"
+                                   th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="#" class="text-red-600 hover:text-red-900 inline-block" 
+                                   th:attr="onclick='openDeleteModal(\'' + ${policy.serviceName} + '\')'"
+                                   th:classappend="${!isAdmin} ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(policies)}" class="no-results">
+                            <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                No retention policies found
+                            </td>
+                        </tr>
+                        <tr id="filterNoResults" class="no-results hidden">
+                            <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                No policies match your search criteria
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-6 py-3 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-700" id="resultCount">Showing <span th:text="${policies.size()}">0</span> policies</span>
                 </div>
             </div>
         </div>
     </main>
     <script>
+        let sortDirection = 1;
+        
+        function filterTable() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const archiveFilter = document.getElementById('archiveFilter').value;
+            const rows = document.querySelectorAll('.policy-row');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const serviceName = row.querySelector('.service-name').textContent.toLowerCase();
+                const archiveValue = row.querySelector('.archive-value').textContent;
+                
+                const matchesSearch = serviceName.includes(searchTerm);
+                const matchesArchive = archiveFilter === '' || archiveValue === archiveFilter;
+
+                if (matchesSearch && matchesArchive) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const filterNoResults = document.getElementById('filterNoResults');
+            const initialNoResults = document.querySelector('.no-results:not(#filterNoResults)');
+            
+            if (filterNoResults) {
+                filterNoResults.classList.toggle('hidden', visibleCount > 0);
+            }
+            if (initialNoResults) {
+                initialNoResults.style.display = visibleCount === 0 && rows.length > 0 ? '' : 'none';
+            }
+
+            document.getElementById('resultCount').textContent = `Showing ${visibleCount} policy${visibleCount !== 1 ? 'ies' : ''}`;
+        }
+
+        function sortTable(columnIndex) {
+            const table = document.getElementById('policiesTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('.policy-row'));
+
+            rows.sort((a, b) => {
+                let aVal, bVal;
+                if (columnIndex === 0) {
+                    aVal = a.querySelector('.service-name').textContent.toLowerCase();
+                    bVal = b.querySelector('.service-name').textContent.toLowerCase();
+                } else {
+                    aVal = parseInt(a.querySelector('.retention-days').textContent);
+                    bVal = parseInt(b.querySelector('.retention-days').textContent);
+                }
+
+                if (aVal < bVal) return -1 * sortDirection;
+                if (aVal > bVal) return 1 * sortDirection;
+                return 0;
+            });
+
+            sortDirection *= -1;
+            
+            rows.forEach(row => tbody.appendChild(row));
+            
+            document.querySelectorAll('th').forEach(th => {
+                th.querySelector('i').className = 'fas fa-sort ml-1 text-gray-400';
+            });
+            const sortedTh = document.querySelectorAll('th')[columnIndex];
+            sortedTh.querySelector('i').className = sortDirection === 1 ? 'fas fa-sort-up ml-1 text-gray-700' : 'fas fa-sort-down ml-1 text-gray-700';
+        }
+
+        document.getElementById('searchInput').addEventListener('input', filterTable);
+        document.getElementById('archiveFilter').addEventListener('change', filterTable);
+
         // Clear URL query params without reload after page loads
         if (window.location.search) {
             window.history.replaceState({}, document.title, '/retention');
         }
-        
-        document.getElementById('addPolicyForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const serviceName = document.getElementById('serviceName').value;
-            const retentionDays = parseInt(document.getElementById('retentionDays').value);
-            const archiveEnabled = document.getElementById('archiveEnabled').checked;
-
-            try {
-                const response = await fetch(`/api/retention/${encodeURIComponent(serviceName)}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        serviceName: serviceName,
-                        retentionDays: retentionDays,
-                        archiveEnabled: archiveEnabled
-                    })
-                });
-
-                if (response.ok) {
-                    window.location.href = '/retention?success=' + encodeURIComponent('Policy added successfully');
-                } else {
-                    const data = await response.json();
-                    alert('Failed to add policy: ' + (data.message || 'Unknown error'));
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        });
     </script>
     
     <!-- Delete Confirmation Modal -->
