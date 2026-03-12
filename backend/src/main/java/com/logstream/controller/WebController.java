@@ -2,12 +2,7 @@ package com.logstream.controller;
 
 import com.logstream.dto.LogSearchRequest;
 import com.logstream.model.RetentionPolicy;
-import com.logstream.service.LogImportService;
-import com.logstream.service.AuthService;
-import com.logstream.service.HealthService;
-import com.logstream.service.IngestionService;
-import com.logstream.service.RetentionService;
-import com.logstream.service.SearchService;
+import com.logstream.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +26,6 @@ public class WebController {
 
     private final AnalyticsService analyticsService;
     private final HealthService healthService;
-    private final IngestionService ingestionService;
     private final RetentionService retentionService;
     private final SearchService searchService;
     private final AuthService authService;
