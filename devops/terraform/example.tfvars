@@ -65,5 +65,31 @@ metabase_desired_count = 1
 github_org  = "YOUR_GITHUB_ORG"
 github_repo = "NSP_25_26_Team_13"
 
-# ── Sensitive (supply via env var, NOT here) ──────────────
+# ── Bastion Host (← enables SSH tunnel to private RDS) ─────────────────
+#
+# SETUP (one-time per developer):
+#   1. Generate an SSH key pair (skip if you already have one):
+#        ssh-keygen -t ed25519 -f ~/.ssh/logstream-bastion
+#
+#   2. Set the public key as an env var so it is never committed:
+#        export TF_VAR_bastion_public_key="$(cat ~/.ssh/logstream-bastion.pub)"
+#
+#   3. After terraform apply, get the tunnel command:
+#        terraform output bastion_ssh_tunnel
+#
+#   4. Open the tunnel in the background:
+#        ssh -i ~/.ssh/logstream-bastion \
+#            -L 5433:<rds-endpoint>:5432 \
+#            -N -f ec2-user@<bastion-ip>
+#
+#   5. Connect your DB client to localhost:5433 (same RDS credentials):
+#        psql -h localhost -p 5433 -U <db_user> -d <db_name>
+#        # DBeaver / TablePlus: host=localhost port=5433
+#
+# SECURITY: In prod, restrict allowed_ssh_cidrs to static team IPs.
+bastion_instance_type = "t3.micro"
+allowed_ssh_cidrs     = ["0.0.0.0/0"]  # tighten in prod: ["<your-ip>/32"]
+
+# ── Sensitive (supply via env var, NOT here) ───────────────────
 # export TF_VAR_jwt_secret="your-jwt-secret"
+# export TF_VAR_bastion_public_key="$(cat ~/.ssh/logstream-bastion.pub)"

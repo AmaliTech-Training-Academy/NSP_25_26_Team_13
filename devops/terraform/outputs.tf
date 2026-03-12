@@ -83,3 +83,14 @@ output "db_secret_arn" {
   value       = module.secrets.db_secret_arn
   sensitive   = true
 }
+
+# ── Bastion ─────────────────────────────────────────────────────────────────────
+output "bastion_public_ip" {
+  description = "Elastic IP of the bastion host"
+  value       = module.bastion.public_ip
+}
+
+output "bastion_ssh_tunnel" {
+  description = "Copy-paste this to open an SSH tunnel: localhost:5433 maps to RDS:5432"
+  value       = "ssh -i <your-key.pem> -L 5433:${module.rds.db_host}:5432 -N -f ec2-user@${module.bastion.public_ip}"
+}

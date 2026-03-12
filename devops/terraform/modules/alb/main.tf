@@ -89,7 +89,8 @@ resource "aws_lb_target_group" "metabase" {
 
 # ── Listeners ─────────────────────────────────────────────────────────────
 
-# Port 80 — production traffic → backend blue (live)
+# Port 80 — production traffic → backend blue (initial; CodeDeploy manages live routing)
+# ignore_changes prevents terraform apply from overriding CodeDeploy's active traffic shift.
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
@@ -98,6 +99,10 @@ resource "aws_lb_listener" "http" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.backend_blue.arn
+  }
+
+  lifecycle {
+    ignore_changes = [default_action]
   }
 }
 
@@ -111,6 +116,10 @@ resource "aws_lb_listener" "test" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.backend_green.arn
+  }
+
+  lifecycle {
+    ignore_changes = [default_action]
   }
 }
 
