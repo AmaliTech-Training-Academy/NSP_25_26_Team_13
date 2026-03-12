@@ -292,6 +292,13 @@ resource "aws_security_group" "rds" {
     description = "All outbound"
   }
 
+  # ignore_changes on ingress prevents Terraform from atomically managing all
+  # ingress rules and deleting the bastion rule added via the standalone
+  # aws_vpc_security_group_ingress_rule resource below.
+  lifecycle {
+    ignore_changes = [ingress]
+  }
+
   tags = { Name = "${var.project_name}-${var.environment}-sg-rds" }
 }
 

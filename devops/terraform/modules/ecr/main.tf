@@ -5,7 +5,7 @@ locals {
 resource "aws_ecr_repository" "repos" {
   for_each = toset(local.repos)
 
-  name                 = "${var.project_name}-${each.key}"
+  name                 = "${var.project_name}-${var.environment}-${each.key}"
   image_tag_mutability = var.image_tag_mutability
   force_delete         = true
 
@@ -13,7 +13,7 @@ resource "aws_ecr_repository" "repos" {
     scan_on_push = var.scan_on_push
   }
 
-  tags = { Name = "${var.project_name}-${each.key}" }
+  tags = { Name = "${var.project_name}-${var.environment}-${each.key}" }
 }
 
 # ── Lifecycle policies — keep the last 10 tagged images per repo ───────────
