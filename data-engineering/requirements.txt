@@ -14,15 +14,7 @@ python-dateutil==2.8.2  # retention/archival time math
 # Testing & Mocking
 pytest==8.0.0
 pytest-mock==3.12.0
-<<<<<<< HEAD
-<<<<<<< HEAD
-pytest-cov==4.0.0
-=======
 pytest-cov==4.1.0
->>>>>>> dev
-=======
-pytest-cov==4.1.0
->>>>>>> refs/remotes/origin/feature/qa-testing
 
 # Data Generation
 faker==22.2.0

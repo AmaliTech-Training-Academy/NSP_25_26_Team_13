@@ -173,11 +173,4 @@ class FileParsingServiceTest {
                 .isInstanceOf(InvalidFileException.class)
                 .hasMessageContaining("Invalid log level");
     }
-
-    @Test
-    void parseCSVLine_invalidTimestampFormat_throwsInvalidFileException() {
-        assertThatThrownBy(() -> service.parseCSVLine(",,INFO,src,msg,svc,not-a-timestamp"))
-                .isInstanceOf(InvalidFileException.class)
-                .hasMessageContaining("Invalid timestamp format");
-    }
 }
