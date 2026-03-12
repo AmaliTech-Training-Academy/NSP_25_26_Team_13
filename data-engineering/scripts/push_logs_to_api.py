@@ -13,8 +13,16 @@ import requests
 import time
 from scripts.data_generator import generate_logs
 from config.config import SERVICES
+import os 
+from dotenv import load_dotenv 
+import random 
 
-API_URL_BATCH = "http://localhost:8080/api/logs/batch"
+
+load_dotenv()
+
+
+
+API_URL_BATCH = os.getenv("API_URL_BATCH")
 BATCH_SIZE = 500
 
 
@@ -66,12 +74,16 @@ def push_logs(logs: list):
     print(f"\nFinished sending {total_sent:,} logs")
 
 
+
+
+
+
 def main():
 
     services = list(SERVICES.keys())
-
     print("Generating logs...")
-    logs = generate_logs(services, num_logs=10000, days=30)
+    num_log = random.randint(50,200)
+    logs = generate_logs(services, num_logs=num_log, days=30)
 
     print(f"Generated {len(logs):,} logs")
 
