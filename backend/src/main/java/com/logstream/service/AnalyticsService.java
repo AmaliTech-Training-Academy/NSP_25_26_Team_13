@@ -81,6 +81,42 @@ public class AnalyticsService {
         return responses;
     }
 
+    /**
+     * Returns common errors for ALL services aggregated by message and service.
+     * Returns a map where key is service name and value is list of CommonErrorResponse.
+     * Time range defaults to last 24 hours if not specified.
+     */
+    public Map<String, List<CommonErrorResponse>> getAllServicesCommonErrors(Integer limit,
+                                                                            Instant startTime, Instant endTime) {
+        int effectiveLimit = resolveLimit(limit);
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = startTime != null ? startTime : end.minus(24, ChronoUnit.HOURS);
+
+        List<Object[]> results = logEntryRepository.findAllServicesCommonErrors(start, end);
+
+        Map<String, List<CommonErrorResponse>> serviceErrors = new LinkedHashMap<>();
+        for (Object[] row : results) {
+            String service = (String) row[0];
+            String message = (String) row[1];
+            Long count = (Long) row[2];
+
+            serviceErrors.computeIfAbsent(service, k -> new ArrayList<>())
+                    .add(CommonErrorResponse.builder()
+                            .message(message)
+                            .count(count)
+                            .build());
+        }
+
+        for (Map.Entry<String, List<CommonErrorResponse>> entry : serviceErrors.entrySet()) {
+            List<CommonErrorResponse> limited = entry.getValue().stream()
+                    .limit(effectiveLimit)
+                    .collect(Collectors.toList());
+            entry.setValue(limited);
+        }
+
+        return serviceErrors;
+    }
+
     private int resolveLimit(Integer limit) {
         if (limit == null) {
             return DEFAULT_LIMIT;
