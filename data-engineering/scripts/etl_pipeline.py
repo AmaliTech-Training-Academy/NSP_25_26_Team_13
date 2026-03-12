@@ -16,23 +16,63 @@ engine = create_engine(DATABASE_URL)
 
 
 def _create_partition(conn, target_date):
-    """Creates a single partition for a given date, with name sanitization."""
+    """Creates a single daily partition for a given date.
+
+    PostgreSQL requires that the DEFAULT partition contains no rows that would
+    fall into the range of a newly-created bounded partition. This function
+    handles that automatically: rows in the default partition for the target
+    date are moved out, the bounded partition is created, then the rows are
+    inserted into the new partition.
+    """
     suffix = target_date.strftime('%Y_%m_%d')
     table_name = f"log_entries_y{suffix}"
-    
+
     # Sanitize partition name to prevent SQL injection
     if not re.match(r'^log_entries_y\d{4}_\d{2}_\d{2}$', table_name):
         raise ValueError(f"Invalid partition name: {table_name}")
-    
+
     start_date = target_date.strftime('%Y-%m-%d')
     end_date = (target_date + timedelta(days=1)).strftime('%Y-%m-%d')
-    
-    query = text(f"""
-        CREATE TABLE IF NOT EXISTS {table_name} 
-        PARTITION OF log_entries 
-        FOR VALUES FROM ('{start_date}') TO ('{end_date}');
-    """)
-    conn.execute(query)
+
+    # Check if the partition already exists — skip if so
+    exists = conn.execute(
+        text("SELECT 1 FROM pg_class WHERE relname = :n AND relnamespace = 'public'::regnamespace"),
+        {"n": table_name}
+    ).fetchone()
+    if exists:
+        return table_name
+
+    # Step 1: Pull conflicting rows out of the default partition into a temp table
+    # (PostgreSQL raises CheckViolation if the default partition holds rows that
+    #  would belong to the new bounded partition.)
+    tmp = f"_tmp_part_{suffix}"
+    conn.execute(text(f"""
+        CREATE TEMP TABLE IF NOT EXISTS {tmp} AS
+        SELECT id, "timestamp", level, source, message, service_name, created_at
+        FROM log_entries_default
+        WHERE "timestamp" >= '{start_date}' AND "timestamp" < '{end_date}'
+    """))
+    conn.execute(text(f"""
+        DELETE FROM log_entries_default
+        WHERE "timestamp" >= '{start_date}' AND "timestamp" < '{end_date}'
+    """))
+    conn.execute(text(f"SELECT COUNT(*) FROM {tmp}")).fetchone()
+
+    # Step 2: Create the bounded partition (now safe — no conflicting rows in default)
+    conn.execute(text(f"""
+        CREATE TABLE IF NOT EXISTS {table_name}
+        PARTITION OF log_entries
+        FOR VALUES FROM ('{start_date}') TO ('{end_date}')
+    """))
+
+    # Step 3: Re-insert the saved rows into the new specific partition
+    conn.execute(text(f"""
+        INSERT INTO log_entries (id, "timestamp", level, source, message, service_name, created_at)
+        SELECT id, "timestamp", level, source, message, service_name, created_at
+        FROM {tmp}
+    """))
+    conn.execute(text(f"DROP TABLE IF EXISTS {tmp}"))
+
     return table_name
 
 
