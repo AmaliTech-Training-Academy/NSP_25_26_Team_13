@@ -29,6 +29,7 @@ module "vpc" {
   single_nat_gateway   = var.single_nat_gateway
   backend_port         = var.backend_port
   metabase_port        = var.metabase_port
+  allowed_ssh_cidrs    = var.allowed_ssh_cidrs
 }
 
 # ── 2. ECR repositories ───────────────────────────────────────────────────────
@@ -144,7 +145,22 @@ module "ecs" {
   depends_on = [module.rds, module.alb]
 }
 
-# ── 8. CodeDeploy (Blue/Green for backend) ────────────────────────────────────
+# ── 8. Bastion Host (SSH tunnel to private RDS) ────────────────────────────
+# After apply, run:  terraform output bastion_ssh_tunnel
+module "bastion" {
+  source = "./modules/bastion"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  public_subnet_id      = module.vpc.public_subnet_ids[0]
+  sg_bastion_id         = module.vpc.sg_bastion_id
+  bastion_instance_type = var.bastion_instance_type
+  bastion_public_key    = var.bastion_public_key
+
+  depends_on = [module.vpc]
+}
+
+# ── 9. CodeDeploy (Blue/Green for backend) ──────────────────────────────────────
 module "codedeploy" {
   source = "./modules/codedeploy"
 
@@ -161,7 +177,7 @@ module "codedeploy" {
   depends_on = [module.ecs]
 }
 
-# ── 9. EventBridge Scheduler (4 cron jobs for data-engineering) ───────────────
+# ── 10. EventBridge Scheduler (4 cron jobs for data-engineering) ────────────────
 module "eventbridge" {
   source = "./modules/eventbridge"
 

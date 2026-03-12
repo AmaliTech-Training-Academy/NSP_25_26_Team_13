@@ -229,7 +229,32 @@ resource "aws_security_group" "data_engineering" {
   tags = { Name = "${var.project_name}-${var.environment}-sg-data-engineering" }
 }
 
-# RDS — only from backend and data-engineering tasks
+# Bastion host — SSH from allowed CIDRs, egress to VPC only
+resource "aws_security_group" "bastion" {
+  name        = "${var.project_name}-${var.environment}-sg-bastion"
+  description = "Bastion host - SSH ingress from allowed CIDRs"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_ssh_cidrs
+    description = "SSH from allowed IPs"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "All outbound"
+  }
+
+  tags = { Name = "${var.project_name}-${var.environment}-sg-bastion" }
+}
+
+# RDS — from ECS tasks only (description is immutable; bastion rule added separately below)
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-${var.environment}-sg-rds"
   description = "RDS PostgreSQL - ingress from ECS tasks only"
@@ -268,4 +293,17 @@ resource "aws_security_group" "rds" {
   }
 
   tags = { Name = "${var.project_name}-${var.environment}-sg-rds" }
+}
+
+# Separate rule so the bastion ingress can be ADDED without touching (destroying)
+# the existing RDS security group — aws_security_group description is immutable.
+resource "aws_vpc_security_group_ingress_rule" "rds_from_bastion" {
+  security_group_id            = aws_security_group.rds.id
+  referenced_security_group_id = aws_security_group.bastion.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  description                  = "From bastion host (dev SSH tunnel access)"
+
+  tags = { Name = "${var.project_name}-${var.environment}-rds-from-bastion" }
 }

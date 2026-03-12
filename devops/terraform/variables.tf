@@ -230,3 +230,24 @@ variable "github_repo" {
   type        = string
   default     = ""
 }
+
+# ──────────────────────────────────────────────────────────
+# Bastion Host
+# ──────────────────────────────────────────────────────────
+variable "bastion_public_key" {
+  description = "SSH public key to install on the bastion (contents of ~/.ssh/id_ed25519.pub)"
+  type        = string
+  sensitive   = true
+}
+
+variable "bastion_instance_type" {
+  description = "EC2 instance type for the bastion host"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "allowed_ssh_cidrs" {
+  description = "CIDR blocks allowed to SSH into the bastion. Restrict to your team's IPs in production."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
