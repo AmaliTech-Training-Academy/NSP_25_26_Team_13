@@ -198,6 +198,17 @@
             }
         });
 
+        // Format timestamp to simple format
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const month = date.toLocaleString('en-US', { month: 'short' });
+            const day = date.getDate();
+            const hour = date.getHours();
+            const minute = date.getMinutes();
+            return hour === 0 && minute === 0 ? `${month} ${day}` : `${month} ${day} ${hour}:${minute.toString().padStart(2, '0')}`;
+        }
+        
         // Log Volume Chart with gradient
         const volumeCtx = document.getElementById('volumeChart').getContext('2d');
         
@@ -219,7 +230,7 @@
         if (allServicesLogVolume && Object.keys(allServicesLogVolume).length > 0) {
             const services = Object.keys(allServicesLogVolume);
             const firstServiceData = allServicesLogVolume[services[0]];
-            const labels = firstServiceData.map(v => v.timestamp);
+            const labels = firstServiceData.map(v => formatTimestamp(v.timestamp));
             
             const datasets = services.map((service, index) => ({
                 label: service,
@@ -278,7 +289,7 @@
             volumeChart = new Chart(volumeCtx, {
                 type: 'line',
                 data: {
-                    labels: singleServiceLogVolume.map(v => v.timestamp),
+                    labels: singleServiceLogVolume.map(v => formatTimestamp(v.timestamp)),
                     datasets: [{
                         label: 'Log Volume',
                         data: singleServiceLogVolume.map(v => v.count),
