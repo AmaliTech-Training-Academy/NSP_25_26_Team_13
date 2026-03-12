@@ -392,6 +392,14 @@ jobs:
           echo "DE_ECR=${BASE}/logstream-dev-data-engineering" >> $GITHUB_OUTPUT
           echo "MB_ECR=${BASE}/logstream-dev-metabase" >> $GITHUB_OUTPUT
 
+      - name: Ensure ECR repositories exist
+        run: |
+          for REPO in logstream-dev-backend logstream-dev-data-engineering logstream-dev-metabase; do
+            aws ecr describe-repositories --repository-names $REPO --region ${{ env.AWS_REGION }} 2>/dev/null || \
+              aws ecr create-repository --repository-name $REPO --region ${{ env.AWS_REGION }} --image-scanning-configuration scanOnPush=true
+            echo "$REPO ✅"
+          done
+
       - name: Build & push backend
         uses: docker/build-push-action@v6
         with:
