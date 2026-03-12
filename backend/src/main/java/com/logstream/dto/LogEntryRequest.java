@@ -40,5 +40,5 @@ public class LogEntryRequest {
     @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Trace ID can only contain letters, numbers, hyphens, and underscores")
     private String traceId;
 
-    private String createdAt;
+    private String timestamp;
 }
