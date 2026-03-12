@@ -82,7 +82,7 @@ def main():
 
     services = list(SERVICES.keys())
     print("Generating logs...")
-    num_log = random.randint(50,10000)
+    num_log = random.randint(50,200)
     logs = generate_logs(services, num_logs=num_log, days=30)
 
     print(f"Generated {len(logs):,} logs")

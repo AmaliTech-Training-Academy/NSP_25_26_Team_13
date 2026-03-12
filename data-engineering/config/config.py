@@ -155,5 +155,4 @@ MESSAGE_MAP = {
 
 # Validation Constants
 VALID_LEVELS  = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR"}
-REQUIRED_COLS = {"id", "timestamp", "level", "source", "message",
-                 "service_name", "created_at"}
+REQUIRED_COLS = {"id", "timestamp", "level", "source", "message","service_name", "created_at"}
