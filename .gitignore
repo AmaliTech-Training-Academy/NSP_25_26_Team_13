@@ -43,3 +43,4 @@ override.tf.json
 # Crash log
 crash.log
 crash.*.log
+PR_SUMMARY.md
