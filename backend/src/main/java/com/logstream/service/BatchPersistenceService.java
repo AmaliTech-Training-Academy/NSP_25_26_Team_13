@@ -5,6 +5,7 @@ import com.logstream.model.RetentionPolicy;
 import com.logstream.repository.RetentionPolicyRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,30 +38,37 @@ public class BatchPersistenceService {
         entityManager.clear();
     }
 
-    public void persistBatchLogEntriesWithRetentionPolicy(List<LogEntry> batch, RetentionPolicyRepository retentionPolicyRepository) {
-        Set<String> serviceNames = batch.stream()
+    @Transactional
+    public void persistBatchLogEntriesWithRetentionPolicy(List<LogEntry> batch, RetentionPolicyRepository repo) {
+        Set<String> names = batch.stream()
                 .map(LogEntry::getServiceName)
                 .collect(Collectors.toSet());
 
-        Set<String> existingPolicies = retentionPolicyRepository
-                .findByServiceNameIn(serviceNames)
-                .stream()
+        // Fetch existing
+        Set<String> existing = repo.findByServiceNameIn(names).stream()
                 .map(RetentionPolicy::getServiceName)
                 .collect(Collectors.toSet());
 
-        List<RetentionPolicy> newPolicies = serviceNames.stream()
-                .filter(service -> !existingPolicies.contains(service))
-                .map(service -> {
-                    RetentionPolicy policy = new RetentionPolicy();
-                    policy.setServiceName(service);
-                    policy.setRetentionDays(30);
-                    policy.setArchiveEnabled(false);
-                    return policy;
-                })
-                .toList();
+        // Filter and save
+        List<RetentionPolicy> newPolicies = names.stream()
+                .filter(name -> !existing.contains(name))
+                .map(this::createRetentionPolicyEntity)
+                .collect(Collectors.toList());
 
         if (!newPolicies.isEmpty()) {
-            retentionPolicyRepository.saveAll(newPolicies);
+            try {
+                repo.saveAll(newPolicies);
+                repo.flush();
+            } catch (DataIntegrityViolationException ignored) {
+            }
         }
+    }
+
+    private RetentionPolicy createRetentionPolicyEntity(String serviceName) {
+        RetentionPolicy policy = new RetentionPolicy();
+        policy.setServiceName(serviceName);
+        policy.setRetentionDays(30);
+        policy.setArchiveEnabled(false);
+        return policy;
     }
 }

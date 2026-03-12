@@ -75,14 +75,14 @@ public class IngestionService {
     }
 
     private void createRetentionPolicyFromLogEntry(String serviceName) {
-        retentionPolicyRepository.findByServiceName(serviceName)
-                .orElseGet(() -> {
-                    RetentionPolicy policy = new RetentionPolicy();
-                    policy.setServiceName(serviceName);
-                    policy.setRetentionDays(30);
-                    policy.setArchiveEnabled(false);
-                    return retentionPolicyRepository.save(policy);
-                });
+        if (retentionPolicyRepository.existsByServiceNameIgnoreCase(serviceName)) {
+            return;
+        }
+        RetentionPolicy policy = new RetentionPolicy();
+        policy.setServiceName(serviceName);
+        policy.setRetentionDays(30);
+        policy.setArchiveEnabled(false);
+        retentionPolicyRepository.save(policy);
     }
 
     private LogEntryResponse mapToResponse(LogEntry e) {
