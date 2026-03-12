@@ -8,6 +8,7 @@ import com.logstream.dto.LogEntryResponse;
 import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
+import com.logstream.repository.RetentionPolicyRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,12 @@ class IngestionServiceTests {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private RetentionPolicyRepository retentionPolicyRepository;
+
+    @Mock
+    private BatchPersistenceService batchPersistenceService;
 
     @InjectMocks
     private IngestionService service;
