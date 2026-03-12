@@ -308,13 +308,17 @@ public class WebController {
         if (allServices) {
             model.addAttribute("allServicesLogVolume", analyticsService.getAllServicesLogVolume(granularity, startTime, endTime));
             model.addAttribute("allServicesCommonErrors", analyticsService.getAllServicesCommonErrors(10, startTime, endTime));
+            model.addAttribute("allServicesErrorRate", analyticsService.getAllServicesErrorRateOverTime(granularity, startTime, endTime));
             model.addAttribute("commonErrors", null);
             model.addAttribute("logVolume", null);
+            model.addAttribute("errorRateOverTime", null);
         } else {
             model.addAttribute("commonErrors", analyticsService.getCommonErrors(service, 10, startTime, endTime));
             model.addAttribute("logVolume", analyticsService.getLogVolumeTimeSeries(service, granularity, startTime, endTime));
             model.addAttribute("allServicesLogVolume", null);
             model.addAttribute("allServicesCommonErrors", null);
+            model.addAttribute("allServicesErrorRate", null);
+            model.addAttribute("errorRateOverTime", null);
         }
         
         model.addAttribute("services", errorRates);
