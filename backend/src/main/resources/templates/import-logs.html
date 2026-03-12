@@ -9,50 +9,153 @@
     <div th:replace="~{layout :: alerts}"></div>
 
     <main class="md:ml-64 p-4 sm:p-6 lg:p-8">
-        <div class="max-w-2xl mx-auto">
-            <div class="bg-white rounded-lg shadow p-6" th:classappend="${!isAdmin} ? 'opacity-50 pointer-events-none' : ''">
-                <h2 class="text-2xl font-bold text-gray-900 mb-6">Import Logs from CSV</h2>
-                
-                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 class="font-semibold text-blue-900 mb-2">CSV Format Requirements</h3>
-                    <p class="text-sm text-blue-800">Your CSV file must have the following columns:</p>
-                    <code class="block text-xs bg-white p-2 mt-2 rounded border border-blue-200">
-                        ID,Timestamp,Service,Level,Message,Source,Created At
-                    </code>
+        <div class="max-w-3xl mx-auto">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" th:classappend="${!isAdmin} ? 'opacity-50 pointer-events-none' : ''">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                    <h2 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-file-import mr-3"></i>Import Logs from CSV
+                    </h2>
+                    <p class="text-blue-100 text-sm mt-1">Upload a CSV file to import log entries into the system</p>
                 </div>
+                
+                <div class="p-6 space-y-6">
+                    <div class="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                        <h3 class="font-semibold text-blue-900 mb-2 flex items-center">
+                            <i class="fas fa-info-circle mr-2"></i>CSV Format Requirements
+                        </h3>
+                        <p class="text-sm text-blue-800 mb-3">Your CSV file must have the following columns:</p>
+                        <code class="block text-xs bg-white p-3 rounded-md border border-blue-200 font-mono text-gray-700">
+                            ID, Timestamp, Service, Level, Message, Source, Created At
+                        </code>
+                    </div>
 
-                <form th:action="@{/logs/import/csv}" method="post" enctype="multipart/form-data" class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition cursor-pointer"
-                             onclick="document.getElementById('fileInput').click()">
-                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
-                            <p class="text-gray-600">Click to select or drag and drop</p>
-                            <p class="text-xs text-gray-500 mt-1">CSV files only</p>
-                            <input type="file" id="fileInput" name="file" accept=".csv" required
-                                   class="hidden" onchange="updateFileName(this)">
+                    <form th:action="@{/logs/import/csv}" method="post" enctype="multipart/form-data" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">Select CSV File</label>
+                            <div id="dropZone" class="relative border-2 border-dashed border-gray-300 rounded-xl p-8 text-center transition-all duration-300 hover:border-blue-500 hover:bg-blue-50/30 cursor-pointer group"
+                                 onclick="document.getElementById('fileInput').click()">
+                                <input type="file" id="fileInput" name="file" accept=".csv" required
+                                       class="hidden" onchange="handleFileSelect(this)">
+                                
+                                <div id="uploadIcon" class="transition-transform duration-300 group-hover:scale-110">
+                                    <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 mb-4"></i>
+                                </div>
+                                
+                                <div id="fileInfo" class="hidden">
+                                    <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                                        <i class="fas fa-file-csv text-2xl text-blue-600"></i>
+                                    </div>
+                                    <p id="selectedFileName" class="text-lg font-semibold text-gray-900 mb-1"></p>
+                                    <p id="fileSize" class="text-sm text-gray-500"></p>
+                                </div>
+                                
+                                <div id="uploadPrompt" class="mt-2">
+                                    <p class="text-gray-600 font-medium">Click to select or drag and drop</p>
+                                    <p class="text-xs text-gray-400 mt-1">CSV files only (max 10MB)</p>
+                                </div>
+                            </div>
                         </div>
-                        <p id="fileName" class="mt-2 text-sm text-gray-600"></p>
-                    </div>
 
-                    <div class="flex space-x-4">
-                        <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition">
-                            <i class="fas fa-upload mr-2"></i>Import
-                        </button>
-                        <a href="/logs" class="bg-gray-300 text-gray-900 px-6 py-2 rounded-md hover:bg-gray-400 transition">
-                            <i class="fas fa-times mr-2"></i>Cancel
-                        </a>
-                    </div>
-                </form>
+                        <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                            <button type="submit" id="importBtn" class="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <i class="fas fa-upload mr-2"></i>Import Logs
+                            </button>
+                            <a href="/logs" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition flex items-center justify-center">
+                                <i class="fas fa-times mr-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        function updateFileName(input) {
-            const fileName = input.files[0]?.name || '';
-            document.getElementById('fileName').textContent = fileName ? 'Selected: ' + fileName : '';
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            const dropZone = document.getElementById('dropZone');
+            const uploadIcon = document.getElementById('uploadIcon');
+            const fileInfo = document.getElementById('fileInfo');
+            const uploadPrompt = document.getElementById('uploadPrompt');
+            const selectedFileName = document.getElementById('selectedFileName');
+            const fileSize = document.getElementById('fileSize');
+            const importBtn = document.getElementById('importBtn');
+            
+            if (file) {
+                if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+                    alert('Please select a valid CSV file');
+                    input.value = '';
+                    return;
+                }
+                
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('File size must be less than 10MB');
+                    input.value = '';
+                    return;
+                }
+                
+                uploadIcon.classList.add('hidden');
+                uploadPrompt.classList.add('hidden');
+                fileInfo.classList.remove('hidden');
+                selectedFileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                
+                dropZone.classList.remove('border-gray-300', 'hover:border-blue-500');
+                dropZone.classList.add('border-green-400', 'bg-green-50/30');
+                
+                importBtn.removeAttribute('disabled');
+            } else {
+                resetDropZone();
+            }
         }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function resetDropZone() {
+            const dropZone = document.getElementById('dropZone');
+            const uploadIcon = document.getElementById('uploadIcon');
+            const fileInfo = document.getElementById('fileInfo');
+            const uploadPrompt = document.getElementById('uploadPrompt');
+            const importBtn = document.getElementById('importBtn');
+            
+            uploadIcon.classList.remove('hidden');
+            fileInfo.classList.add('hidden');
+            uploadPrompt.classList.remove('hidden');
+            
+            dropZone.classList.add('border-gray-300', 'hover:border-blue-500');
+            dropZone.classList.remove('border-green-400', 'bg-green-50/30');
+            
+            importBtn.setAttribute('disabled', 'true');
+        }
+        
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('border-blue-500', 'bg-blue-50/30');
+        });
+        
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-blue-500', 'bg-blue-50/30');
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-blue-500', 'bg-blue-50/30');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFileSelect(document.getElementById('fileInput'));
+            }
+        });
     </script>
 </body>
 </html>
