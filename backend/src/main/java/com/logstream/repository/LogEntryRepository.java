@@ -72,6 +72,20 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
             @Param("start") Instant start,
             @Param("endTime") Instant end);
 
+    @Query(value = "SELECT date_trunc('hour', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE created_at >= :start AND created_at <= :endTime "
+            + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> findAllServicesHourlyVolume(
+            @Param("start") Instant start,
+            @Param("endTime") Instant end);
+
+    @Query(value = "SELECT date_trunc('day', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE created_at >= :start AND created_at <= :endTime "
+            + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
+    List<Object[]> findAllServicesDailyVolume(
+            @Param("start") Instant start,
+            @Param("endTime") Instant end);
+
     @Query("SELECT l.serviceName, MAX(l.timestamp) FROM LogEntry l GROUP BY l.serviceName")
     List<Object[]> findLastLogTimestampByService();
 
