@@ -1,33 +1,59 @@
 spring:
-    datasource:
-        url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/logstream}
-        username: ${SPRING_DATASOURCE_USERNAME:logstream}
-        password: ${SPRING_DATASOURCE_PASSWORD:logstream123}
-    jpa:
-        hibernate:
-            ddl-auto: update
-        show-sql: false
-        properties:
-            hibernate:
-                dialect: org.hibernate.dialect.PostgreSQLDialect
-        defer-datasource-initialization: true
-    sql:
-        init:
-            mode: always
-    servlet:
-        multipart:
-            max-file-size: 50MB
-            max-request-size: 50MB
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/logstream}
+    username: ${SPRING_DATASOURCE_USERNAME:logstream}
+    password: ${SPRING_DATASOURCE_PASSWORD:logstream123}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  thymeleaf:
+    cache: false
+    mode: HTML
+    prefix: classpath:/templates/
+    suffix: .html
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health
+    endpoint:
+        health:
+            show-details: never
+
+logging:
+  level:
+    org:
+      springframework:
+        security: DEBUG
 
 jwt:
-    secret: ${JWT_SECRET:logstream-secret-key-amalitech-2024-secure}
-    expiration: 86400000
+  secret: ${JWT_SECRET:logstream-secret-key-amalitech-2024-secure}
+  expiration: 86400000
 
 server:
-    port: 8080
+  port: 8080
 
 springdoc:
-    api-docs:
-        path: /api-docs
-    swagger-ui:
-        path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    filter: true
