@@ -17,7 +17,7 @@ public class SecurityApiTest extends BaseTest {
         given()
                 .contentType(ContentType.JSON)
                 .when()
-                .get("/api/logs/analytics")
+                .get("/api/health")
                 .then()
                 .statusCode(200);
 
@@ -47,7 +47,7 @@ public class SecurityApiTest extends BaseTest {
         given()
                 .header("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.invalid.token")
                 .when()
-                .get("/api/logs/analytics")
+                .get("/api/health")
                 .then()
                 .statusCode(200);
         // .statusCode(anyOf(is(401), is(403)));
@@ -87,7 +87,7 @@ public class SecurityApiTest extends BaseTest {
         given()
                 .header("Authorization", "Bearer " + tamperedToken)
                 .when()
-                .get("/api/logs/analytics")
+                .get("/api/health")
                 .then()
                 .statusCode(200);
         // .statusCode(anyOf(is(401), is(403)));
