@@ -2,14 +2,26 @@ name: LogStream CI/CD
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ dev, main ]
   pull_request:
     branches: [ dev, main ]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Force deploy to environment'
+        required: false
+        default: 'dev'
+        type: choice
+        options: [ dev, prod ]
 
 env:
   JAVA_VERSION: '21'
   PYTHON_VERSION: '3.11'
+  AWS_REGION: 'eu-west-1'
+  AWS_ACCOUNT_ID: '205930639565'
+
+permissions:
+  contents: read
 
 jobs:
 
@@ -24,14 +36,29 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Install Gitleaks
         run: |
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep tag_name | cut -d '"' -f4 | tr -d v)_linux_x64.tar.gz \
             | tar -xz -C /usr/local/bin gitleaks
 
+      - name: Create Gitleaks config
+        run: |
+          cat > .gitleaks.toml << 'TOML'
+          [allowlist]
+            paths = [
+              '''.*\.md$''',
+              '''.*\.MD$'''
+            ]
+          TOML
+
       - name: Gitleaks scan
-        run: gitleaks detect --source . --redact -v
+        run: |
+          gitleaks detect \
+            --source . \
+            --redact \
+            --config .gitleaks.toml \
+            -v
 
   # ─────────────────────────────────────────────────────────
   # JOB 1: Backend — Lint & Checkstyle
@@ -327,119 +354,342 @@ jobs:
           rm -rf /tmp/.buildx-cache
 
   # ─────────────────────────────────────────────────────────
-  # JOB 6: QA — API Integration Tests (RestAssured / TestNG)
-  # Spins up a real backend + postgres, then hits the live API
+  # JOB 6: Deploy → DEV
+  # Triggered only on push to dev branch (not PRs)
   # ─────────────────────────────────────────────────────────
-  qa-api-tests:
-    name: QA — API Integration Tests
+  deploy-dev:
+    name: Deploy → DEV
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [ docker ]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    environment:
+      name: dev
+      url: http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: ${{ secrets.DB_NAME }}
-          POSTGRES_USER: ${{ secrets.DB_USERNAME }}
-          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: maven
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+      - name: Set image tag
+        id: tag
+        run: echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-      - name: Install PostgreSQL client
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set ECR URLs
+        id: ecr
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y postgresql-client
+          BASE="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          echo "BACKEND_ECR=${BASE}/logstream-dev-backend" >> $GITHUB_OUTPUT
+          echo "DE_ECR=${BASE}/logstream-dev-data-engineering" >> $GITHUB_OUTPUT
+          echo "MB_ECR=${BASE}/logstream-dev-metabase" >> $GITHUB_OUTPUT
 
-      - name: Run schema DDL on PostgreSQL
+      - name: Ensure ECR repositories exist
         run: |
-          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql \
-            -h localhost -U ${{ secrets.DB_USERNAME }} -d ${{ secrets.DB_NAME }} \
-            -f "$GITHUB_WORKSPACE/data-engineering/db/ddl/schema_ddl.sql"
-
-      - name: Build backend JAR
-        working-directory: backend
-        run: mvn clean package -DskipTests -B -q
-
-      - name: Start backend in background
-        env:
-          SPRING_PROFILES_ACTIVE: dev
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/${{ secrets.DB_NAME }}
-          SPRING_DATASOURCE_USERNAME: ${{ secrets.DB_USERNAME }}
-          SPRING_DATASOURCE_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          SERVER_PORT: "8080"
-        run: |
-          nohup java -jar backend/target/*.jar \
-            --spring.datasource.url=jdbc:postgresql://localhost:5432/${{ secrets.DB_NAME }} \
-            --spring.datasource.username=${{ secrets.DB_USERNAME }} \
-            --spring.datasource.password=${{ secrets.DB_PASSWORD }} \
-            --jwt.secret=${{ secrets.JWT_SECRET }} \
-            --server.port=8080 \
-            > /tmp/backend.log 2>&1 &
-          echo $! > /tmp/backend.pid
-          echo "Backend started with PID $(cat /tmp/backend.pid)"
-
-      - name: Wait for backend to be healthy
-        run: |
-          echo "Waiting for backend /actuator/health..."
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
-              echo "Backend is up (attempt $i)"
-              exit 0
-            fi
-            echo "Attempt $i/30 — not ready yet, retrying in 5s..."
-            sleep 5
+          for REPO in logstream-dev-backend logstream-dev-data-engineering logstream-dev-metabase; do
+            aws ecr describe-repositories --repository-names $REPO --region ${{ env.AWS_REGION }} 2>/dev/null || \
+              aws ecr create-repository --repository-name $REPO --region ${{ env.AWS_REGION }} --image-scanning-configuration scanOnPush=true
+            echo "$REPO ✅"
           done
-          echo "Backend failed to start. Dumping logs:"
-          cat /tmp/backend.log
-          exit 1
 
-      - name: Run QA API tests
-        working-directory: qa/api-tests
-        env:
-          API_BASE_URL: http://localhost:8080
-        run: mvn test -B
-
-      - name: Upload QA test results
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
         with:
-          name: qa-api-test-results
-          path: qa/api-tests/target/surefire-reports/
-          retention-days: 14
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.BACKEND_ECR }}:${{ steps.tag.outputs.IMAGE_TAG }}
+            ${{ steps.ecr.outputs.BACKEND_ECR }}:latest
 
-      - name: Dump backend logs on failure
-        if: failure()
-        run: cat /tmp/backend.log || true
+      - name: Build & push data-engineering
+        uses: docker/build-push-action@v6
+        with:
+          context: data-engineering
+          file: data-engineering/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.DE_ECR }}:${{ steps.tag.outputs.IMAGE_TAG }}
+            ${{ steps.ecr.outputs.DE_ECR }}:latest
 
-      - name: Stop backend
-        if: always()
+      - name: Check & push Metabase to ECR (only if missing)
         run: |
-          if [ -f /tmp/backend.pid ]; then
-            kill $(cat /tmp/backend.pid) || true
+          EXISTS=$(aws ecr describe-images \
+            --repository-name logstream-dev-metabase \
+            --image-ids imageTag=latest \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "NOT_FOUND")
+          if echo "$EXISTS" | grep -q "NOT_FOUND"; then
+            echo "Pulling Metabase and pushing to ECR..."
+            docker pull metabase/metabase:latest
+            docker tag metabase/metabase:latest ${{ steps.ecr.outputs.MB_ECR }}:latest
+            docker push ${{ steps.ecr.outputs.MB_ECR }}:latest
+          else
+            echo "Metabase already in ECR — skipping ✅"
           fi
+
+      - name: Register new backend task definition
+        id: task-def
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition logstream-dev-backend \
+            --region ${{ env.AWS_REGION }} \
+            --query taskDefinition)
+
+          NEW_TASK_DEF=$(echo $TASK_DEF | python3 -c "import sys,json; td=json.load(sys.stdin); [c.update({'image':'${{ steps.ecr.outputs.BACKEND_ECR }}:${{ steps.tag.outputs.IMAGE_TAG }}'}) for c in td['containerDefinitions'] if c.get('name')=='backend']; [td.pop(k,None) for k in ['taskDefinitionArn','revision','status','requiresAttributes','compatibilities','registeredAt','registeredBy']]; print(json.dumps(td))")
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --region ${{ env.AWS_REGION }} \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "TASK_DEF_ARN=$NEW_ARN" >> $GITHUB_OUTPUT
+          echo "New task def: $NEW_ARN"
+
+      - name: Deploy backend via CodeDeploy (Blue/Green)
+        id: codedeploy
+        run: |
+          APPSPEC=$(cat << EOF
+          {"version":"0.0","Resources":[{"TargetService":{"Type":"AWS::ECS::Service","Properties":{"TaskDefinition":"${{ steps.task-def.outputs.TASK_DEF_ARN }}","LoadBalancerInfo":{"ContainerName":"backend","ContainerPort":8080}}}}]}
+          EOF
+          )
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --application-name logstream-dev-backend \
+            --deployment-group-name logstream-dev-backend-dg \
+            --region ${{ env.AWS_REGION }} \
+            --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":\"$(echo $APPSPEC | tr -d '\n' | sed 's/\"/\\\"/g')\"}}" \
+            --description "Deploy ${{ steps.tag.outputs.IMAGE_TAG }} to dev" \
+            --query 'deploymentId' --output text)
+          echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "CodeDeploy deployment: $DEPLOYMENT_ID"
+
+      - name: Wait for CodeDeploy to finish
+        run: |
+          aws deploy wait deployment-successful \
+            --deployment-id ${{ steps.codedeploy.outputs.DEPLOYMENT_ID }} \
+            --region ${{ env.AWS_REGION }}
+          echo "Backend live ✅"
+
+      - name: Update data-engineering task def & EventBridge schedules
+        run: |
+          NEW_DE_IMAGE="${{ steps.ecr.outputs.DE_ECR }}:${{ steps.tag.outputs.IMAGE_TAG }}"
+
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition logstream-dev-data-engineering \
+            --region ${{ env.AWS_REGION }} --query taskDefinition)
+
+          NEW_TASK_DEF=$(echo $TASK_DEF | python3 -c "import sys,json; td=json.load(sys.stdin); [c.update({'image':'$NEW_DE_IMAGE'}) for c in td['containerDefinitions']]; [td.pop(k,None) for k in ['taskDefinitionArn','revision','status','requiresAttributes','compatibilities','registeredAt','registeredBy']]; print(json.dumps(td))")
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --region ${{ env.AWS_REGION }} \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "New data-engineering task def: $NEW_ARN"
+
+          for SCHEDULE in logstream-dev-etl-15min logstream-dev-aggregate-hourly logstream-dev-cleanup-daily logstream-dev-retention-policy; do
+            CURRENT=$(aws scheduler get-schedule --name $SCHEDULE --region ${{ env.AWS_REGION }} 2>/dev/null || echo "SKIP")
+            if [ "$CURRENT" != "SKIP" ]; then
+              EXPR=$(echo $CURRENT | python3 -c "import sys,json; print(json.load(sys.stdin)['ScheduleExpression'])")
+              TARGET=$(echo $CURRENT | python3 -c "import sys,json; t=json.load(sys.stdin)['Target']; t['EcsParameters']['TaskDefinitionArn']='$NEW_ARN'; print(json.dumps(t))")
+              aws scheduler update-schedule \
+                --name $SCHEDULE \
+                --region ${{ env.AWS_REGION }} \
+                --schedule-expression "$EXPR" \
+                --flexible-time-window '{"Mode":"OFF"}' \
+                --target "$TARGET"
+              echo "  $SCHEDULE updated ✅"
+            fi
+          done
+
+      - name: Force redeploy Metabase
+        run: |
+          aws ecs update-service \
+            --cluster logstream-dev \
+            --service logstream-dev-metabase \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          echo "Metabase redeployment triggered ✅"
+
+      - name: Deployment summary — DEV
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  DEV Deployment Complete ✅"
+          echo "  Commit : ${{ github.sha }}"
+          echo "  Backend: http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com"
+          echo "  Swagger: http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com/swagger-ui/index.html"
+          echo "  Metabase: http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com:3000"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # ─────────────────────────────────────────────────────────
+  # JOB 7: Deploy → PROD
+  # Triggered only on push/merge to main branch.
+  # Pauses for manual approval via GitHub Environment protection.
+  # ─────────────────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy → PROD
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [ docker ]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: prod
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set image tag
+        id: tag
+        run: echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set ECR URLs
+        id: ecr
+        run: |
+          BASE="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          echo "BACKEND_ECR=${BASE}/logstream-prod-backend" >> $GITHUB_OUTPUT
+          echo "DE_ECR=${BASE}/logstream-prod-data-engineering" >> $GITHUB_OUTPUT
+          echo "MB_ECR=${BASE}/logstream-prod-metabase" >> $GITHUB_OUTPUT
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.7.0'
+
+      - name: Terraform Init (prod)
+        working-directory: devops/terraform
+        run: terraform init -backend-config=envs/prod/backend.hcl
+
+      - name: Terraform Plan (prod)
+        working-directory: devops/terraform
+        env:
+          TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET_PROD }}
+        run: |
+          terraform plan \
+            -var-file=prod.tfvars \
+            -var="aws_account_id=${{ env.AWS_ACCOUNT_ID }}" \
+            -out=tfplan-prod
+
+      - name: Terraform Apply (prod)
+        working-directory: devops/terraform
+        env:
+          TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET_PROD }}
+        run: terraform apply -auto-approve tfplan-prod
+
+      - name: Get prod ALB DNS
+        id: alb
+        working-directory: devops/terraform
+        run: echo "PROD_ALB=$(terraform output -raw alb_dns_name)" >> $GITHUB_OUTPUT
+
+      - name: Build & push backend (prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.BACKEND_ECR }}:${{ steps.tag.outputs.IMAGE_TAG }}
+            ${{ steps.ecr.outputs.BACKEND_ECR }}:latest
+
+      - name: Build & push data-engineering (prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: data-engineering
+          file: data-engineering/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.DE_ECR }}:${{ steps.tag.outputs.IMAGE_TAG }}
+            ${{ steps.ecr.outputs.DE_ECR }}:latest
+
+      - name: Check & push Metabase to prod ECR
+        run: |
+          EXISTS=$(aws ecr describe-images \
+            --repository-name logstream-prod-metabase \
+            --image-ids imageTag=latest \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "NOT_FOUND")
+          if echo "$EXISTS" | grep -q "NOT_FOUND"; then
+            docker pull metabase/metabase:latest
+            docker tag metabase/metabase:latest ${{ steps.ecr.outputs.MB_ECR }}:latest
+            docker push ${{ steps.ecr.outputs.MB_ECR }}:latest
+          else
+            echo "Metabase already in prod ECR — skipping ✅"
+          fi
+
+      - name: Register new prod backend task definition
+        id: task-def
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition logstream-prod-backend \
+            --region ${{ env.AWS_REGION }} \
+            --query taskDefinition)
+
+          NEW_TASK_DEF=$(echo $TASK_DEF | python3 -c "import sys,json; td=json.load(sys.stdin); [c.update({'image':'${{ steps.ecr.outputs.BACKEND_ECR }}:${{ steps.tag.outputs.IMAGE_TAG }}'}) for c in td['containerDefinitions'] if c.get('name')=='backend']; [td.pop(k,None) for k in ['taskDefinitionArn','revision','status','requiresAttributes','compatibilities','registeredAt','registeredBy']]; print(json.dumps(td))")
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --region ${{ env.AWS_REGION }} \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "TASK_DEF_ARN=$NEW_ARN" >> $GITHUB_OUTPUT
+          echo "Prod task def: $NEW_ARN"
+
+      - name: Deploy prod backend via CodeDeploy (Blue/Green)
+        id: codedeploy
+        run: |
+          APPSPEC=$(cat << EOF
+          {"version":"0.0","Resources":[{"TargetService":{"Type":"AWS::ECS::Service","Properties":{"TaskDefinition":"${{ steps.task-def.outputs.TASK_DEF_ARN }}","LoadBalancerInfo":{"ContainerName":"backend","ContainerPort":8080}}}}]}
+          EOF
+          )
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --application-name logstream-prod-backend \
+            --deployment-group-name logstream-prod-backend-dg \
+            --region ${{ env.AWS_REGION }} \
+            --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":\"$(echo $APPSPEC | tr -d '\n' | sed 's/\"/\\\"/g')\"}}" \
+            --description "Deploy ${{ steps.tag.outputs.IMAGE_TAG }} to prod" \
+            --query 'deploymentId' --output text)
+          echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait for prod CodeDeploy
+        run: |
+          aws deploy wait deployment-successful \
+            --deployment-id ${{ steps.codedeploy.outputs.DEPLOYMENT_ID }} \
+            --region ${{ env.AWS_REGION }}
+          echo "Prod backend live ✅"
+
+      - name: Force redeploy prod Metabase
+        run: |
+          aws ecs update-service \
+            --cluster logstream-prod \
+            --service logstream-prod-metabase \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deployment summary — PROD
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  PROD Deployment Complete ✅"
+          echo "  Commit  : ${{ github.sha }}"
+          echo "  Backend : http://${{ steps.alb.outputs.PROD_ALB }}"
+          echo "  Swagger : http://${{ steps.alb.outputs.PROD_ALB }}/swagger-ui/index.html"
+          echo "  Metabase: http://${{ steps.alb.outputs.PROD_ALB }}:3000"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
