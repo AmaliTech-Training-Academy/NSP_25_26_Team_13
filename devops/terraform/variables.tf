@@ -189,6 +189,11 @@ variable "data_engineering_memory" {
   default     = 512
 }
 
+variable "api_url_batch" {
+  description = "Full URL for the backend batch log ingestion endpoint (used by push_logs_to_api.py)"
+  type        = string
+}
+
 # ──────────────────────────────────────────────────────────
 # ECS — Metabase
 # ──────────────────────────────────────────────────────────

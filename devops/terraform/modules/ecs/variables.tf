@@ -115,6 +115,11 @@ variable "data_engineering_memory" {
   default = 512
 }
 
+variable "api_url_batch" {
+  description = "Full URL for the backend batch log ingestion endpoint"
+  type        = string
+}
+
 variable "metabase_cpu" {
   type    = number
   default = 512

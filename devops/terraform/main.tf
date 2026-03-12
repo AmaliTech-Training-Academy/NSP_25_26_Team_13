@@ -137,6 +137,7 @@ module "ecs" {
 
   data_engineering_cpu    = var.data_engineering_cpu
   data_engineering_memory = var.data_engineering_memory
+  api_url_batch           = var.api_url_batch
 
   metabase_cpu           = var.metabase_cpu
   metabase_memory        = var.metabase_memory
