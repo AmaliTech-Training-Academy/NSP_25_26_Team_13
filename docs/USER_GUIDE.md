@@ -13,11 +13,12 @@ and exactly how data flows from generation all the way to the Metabase dashboard
 4. [The Data Generator — How Logs Are Created](#4-the-data-generator--how-logs-are-created)
 5. [How Logs Enter the Database](#5-how-logs-enter-the-database)
 6. [The ETL Pipeline — What It Does and When](#6-the-etl-pipeline--what-it-does-and-when)
-7. [Analytics Views — What Metabase Reads](#7-analytics-views--what-metabase-reads)
-8. [Metabase Dashboarding](#8-metabase-dashboarding)
-9. [The REST API — Backend Capabilities](#9-the-rest-api--backend-capabilities)
-10. [Cron Schedule — The Full Automation Loop](#10-cron-schedule--the-full-automation-loop)
-11. [Data Flow Summary (End to End)](#11-data-flow-summary-end-to-end)
+7. [API Log Ingestion — push\_logs\_to\_api.py](#7-api-log-ingestion--push_logs_to_apipy)
+8. [Analytics Views — What Metabase Reads](#8-analytics-views--what-metabase-reads)
+9. [Metabase Dashboarding](#9-metabase-dashboarding)
+10. [The REST API — Backend Capabilities](#10-the-rest-api--backend-capabilities)
+11. [EventBridge Schedule — The Full Automation Loop](#11-eventbridge-schedule--the-full-automation-loop)
+12. [Data Flow Summary (End to End)](#12-data-flow-summary-end-to-end)
 
 ---
 
@@ -36,15 +37,24 @@ LogStream solves this by:
 
 1. **Ingesting** logs from any service via a REST API
 2. **Storing** them in a structured, time-partitioned PostgreSQL table
-3. **Analysing** them on a schedule using an ETL pipeline
-4. **Visualising** the results in a Metabase BI dashboard
+3. **Generating & pushing** synthetic logs on a schedule via `push_logs_to_api.py`
+4. **Analysing** them on a schedule using an ETL pipeline
+5. **Visualising** the results in a Metabase BI dashboard
 
-The whole system runs in Docker Compose — one command brings up the database,
-the backend API, the data-engineering container, and Metabase.
+The system runs in two modes:
+
+- **Local development** — Docker Compose brings up the database, backend API,
+  data-engineering container, and Metabase in a single command.
+- **AWS production** — the same services run on ECS Fargate (private subnets)
+  behind an Application Load Balancer, with an RDS PostgreSQL instance, ECR
+  for container images, CodeDeploy for blue/green backend deployments, and
+  EventBridge Scheduler replacing the local cron daemon for all five ETL tasks.
 
 ---
 
 ## 2. Architecture Overview
+
+### Local Development (Docker Compose)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -53,38 +63,123 @@ the backend API, the data-engineering container, and Metabase.
 │  ┌──────────────┐    REST API    ┌──────────────────────────────┐   │
 │  │   Any Client │ ─────────────▶ │  Backend (Spring Boot 3.2)  │   │
 │  │  (app / CLI) │                │  :8080                       │   │
-│  └──────────────┘                │  • Auth (JWT)                │   │
-│                                  │  • Log Ingestion             │   │
-│  ┌──────────────┐                │  • Search                    │   │
-│  │  Data        │  direct SQL    │  • Retention                 │   │
-│  │  Generator   │ ─────────────▶ │  • Analytics API             │   │
-│  │  (Python)    │                └──────────┬───────────────────┘   │
-│  └──────────────┘                           │ JDBC                  │
-│                                             ▼                       │
-│  ┌────────────────────────────────────────────────────────────┐     │
-│  │              PostgreSQL 16                                  │     │
-│  │  • log_entries (partitioned by timestamp/day)              │     │
-│  │  • users                                                   │     │
-│  │  • retention_policies                                      │     │
-│  │  • logs_archive                                            │     │
-│  │  • service_health_dashboard  ◀── ETL writes here           │     │
-│  │  • log_metrics_hourly        ◀── ETL writes here           │     │
-│  │  • log_metrics_daily         ◀── ETL writes here           │     │
-│  │  • analytics views (vw_*)    ◀── Metabase reads these      │     │
-│  └─────────────────────────────┬──────────────────────────────┘     │
-│                                 │                                    │
-│  ┌──────────────────────┐       │ SQL                               │
-│  │  Data Engineering    │ ──────┘                                   │
-│  │  (Python + cron)     │  reads log_entries                        │
-│  │  • ETL Pipeline      │  writes derived tables                    │
-│  │  • Retention Policy  │                                           │
-│  └──────────────────────┘                                           │
-│                                                                     │
-│  ┌──────────────────────┐                                           │
-│  │  Metabase v0.59      │  queries vw_* views & derived tables      │
-│  │  :3000               │ ─────────────────────────────────────────▶│
-│  └──────────────────────┘                                           │
+│  └──────────────┘                └──────────┬───────────────────┘   │
+│                                             │ JDBC                  │
+│  ┌──────────────┐  direct SQL               ▼                       │
+│  │  Data        │ ──────────────▶  PostgreSQL 16 :5432              │
+│  │  Engineering │                  log_entries (partitioned)        │
+│  │  (Python)    │ ◀─────────────   analytics views                  │
+│  └──────────────┘                           ▲                       │
+│                                             │ SQL                   │
+│  ┌──────────────┐                           │                       │
+│  │  Metabase    │ ──────────────────────────┘                       │
+│  │  :3000       │                                                   │
+│  └──────────────┘                                                   │
 └─────────────────────────────────────────────────────────────────────┘
+```
+
+### AWS Production Architecture
+
+```mermaid
+flowchart TB
+    subgraph Internet["🌐 Internet"]
+        CLIENT["Any Client\n(app / browser / CI)"]
+        GHA["GitHub Actions\n(CI/CD)"]
+    end
+
+    subgraph AWS["☁️ AWS — eu-west-1"]
+
+        subgraph ECR["Amazon ECR"]
+            ECR_BE["logstream-{env}-backend"]
+            ECR_DE["logstream-{env}-data-engineering"]
+            ECR_MB["logstream-{env}-metabase"]
+        end
+
+        subgraph PublicSubnet["Public Subnets (10.0.1/2.0/24)"]
+            ALB["Application Load Balancer\n• :80  → Backend (blue/green)\n• :8080 → Backend test\n• :3000 → Metabase"]
+            BASTION["Bastion Host (EC2)\nt3.micro — AL2023\nElastic IP: 18.200.108.251"]
+        end
+
+        subgraph PrivateSubnet["Private Subnets (10.0.11/12.0/24)"]
+            subgraph ECS["ECS Fargate Cluster"]
+                BE["Backend Service\n(Spring Boot 3.2)\nBlue/Green via CodeDeploy"]
+                DE["Data-Engineering Task\n(Python)\nRun-to-completion"]
+                MB["Metabase Service\n(v0.59)"]
+            end
+
+            RDS["RDS PostgreSQL 16\nlog_entries (partitioned)\nusers, retention_policies\nservice_health_dashboard\nlog_metrics_hourly/daily\nvw_* analytics views"]
+        end
+
+        subgraph Infra["Platform Services"]
+            EB["EventBridge Scheduler\n5 schedules\n(containerOverrides)"]
+            CD["CodeDeploy\nBlue/Green"]
+            SM["Secrets Manager\nDB credentials\nJWT secret"]
+            CW["CloudWatch Logs\n/ecs/logstream/{env}/*"]
+            NAT["NAT Gateway"]
+        end
+    end
+
+    CLIENT -->|"HTTPS :80/:3000"| ALB
+    ALB -->|":80 blue/green"| BE
+    ALB -->|":3000"| MB
+    BE -->|"JDBC"| RDS
+    MB -->|"SQL"| RDS
+
+    GHA -->|"OIDC push image"| ECR
+    GHA -->|"CodeDeploy trigger"| CD
+    CD -->|"traffic shift"| ALB
+    ECR -->|"pull image"| BE
+    ECR -->|"pull image"| MB
+    ECR -->|"pull image"| DE
+
+    EB -->|"Run ECS task\n+containerOverrides"| DE
+    DE -->|"SQL (ETL)"| RDS
+    DE -->|"POST /api/logs/batch"| ALB
+
+    BE -->|"read secrets"| SM
+    DE -->|"read secrets"| SM
+
+    BE -->|"logs"| CW
+    DE -->|"logs"| CW
+    MB -->|"logs"| CW
+
+    PrivateSubnet -->|"outbound via"| NAT
+
+    BASTION -.->|"SSH tunnel :5433\n→ RDS :5432"| RDS
+
+    style Internet fill:#e8f4fd,stroke:#2196F3
+    style AWS fill:#fff8e1,stroke:#FF9800
+    style PublicSubnet fill:#e8f5e9,stroke:#4CAF50
+    style PrivateSubnet fill:#fce4ec,stroke:#E91E63
+    style ECS fill:#f3e5f5,stroke:#9C27B0
+    style Infra fill:#e3f2fd,stroke:#1565C0
+    style ECR fill:#e0f7fa,stroke:#00ACC1
+```
+
+### Key Networking Rules
+
+| Path | Allowed | Notes |
+|---|---|---|
+| Internet → ALB | ✅ | Ports 80, 8080, 3000 |
+| ALB → Backend ECS | ✅ | Port 8080 (backend SG) |
+| ALB → Metabase ECS | ✅ | Port 3000 (metabase SG) |
+| ECS → RDS | ✅ | Port 5432 (backend + DE + metabase SGs) |
+| ECS → Internet | ✅ | Via NAT Gateway (pull packages, call APIs) |
+| Bastion → RDS | ✅ | Port 5432 (bastion SG ingress rule) |
+| Internet → RDS | ❌ | No public access — private subnets only |
+| Internet → ECS | ❌ | All traffic must enter through the ALB |
+
+### CI/CD Flow
+
+```
+Developer → git push → GitHub Actions
+  1. Build Docker image
+  2. Push to ECR (logstream-{env}-backend)
+  3. Register new ECS task definition revision
+  4. Trigger CodeDeploy blue/green deployment
+     └── Shifts traffic: ALB port-80 listener blue TG → green TG
+         (ALB listeners have ignore_changes = [default_action]
+          so Terraform never reverts CodeDeploy's routing)
 ```
 
 ---
@@ -341,8 +436,9 @@ There are two paths:
 
 ### Path A — Via the Backend REST API (production path)
 
-Any application (or the generator via a script) sends an HTTP `POST` to the
-backend:
+Any application (or `push_logs_to_api.py`, see Section 7) sends an HTTP `POST`
+to the backend. In AWS production the entry point is the **ALB DNS name** — the
+request routes through the load balancer to one of the backend ECS tasks:
 
 ```
 POST /api/logs
@@ -367,7 +463,12 @@ into the correct daily partition automatically based on the `timestamp` value.
 ```
 POST /api/logs/batch
 ```
-Accepts an array of log entries and inserts them all in one transaction.
+Accepts an array of log entries and inserts them all in one transaction. This
+is the endpoint used by `push_logs_to_api.py` — the data-engineering container
+generates synthetic logs and `POST`s them here via the internal ALB URL:
+```
+API_URL_BATCH=http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com/api/logs/batch
+```
 
 **CSV/JSON file import** is supported too:
 
@@ -377,10 +478,11 @@ POST /api/logs/import   (multipart/form-data, field: "file")
 
 ### Path B — Direct Database Insert (data generator + ETL)
 
-The data generator and ETL pipeline connect directly to PostgreSQL via
-SQLAlchemy using the `DATABASE_URL` from environment variables. They bypass
-the REST API and write rows straight into `log_entries`. This is appropriate
-for bulk seeding and internal pipeline operations.
+The ETL pipeline scripts (`etl_pipeline.py`, `retention_policy.py`) connect
+directly to PostgreSQL via SQLAlchemy using credentials injected from AWS
+Secrets Manager into the ECS task environment. They bypass the REST API and
+write rows straight into `log_entries`. This is appropriate for bulk seeding
+and internal pipeline aggregation operations.
 
 ---
 
@@ -471,7 +573,64 @@ INSERT INTO log_metrics_daily ...
 
 ---
 
-## 7. Analytics Views — What Metabase Reads
+## 7. API Log Ingestion — push\_logs\_to\_api.py
+
+File: `data-engineering/scripts/push_logs_to_api.py`
+
+This script is the **bridge between the data generator and the backend API**.
+Rather than inserting logs directly into the database, it generates synthetic
+logs and pushes them to the system via the standard REST batch endpoint —
+exactly as a real external service would.
+
+### Why it exists
+
+Direct DB inserts (Path B above) are used internally by the ETL pipeline for
+aggregation writes. `push_logs_to_api.py` tests and exercises the **full
+ingestion path** end-to-end: generator → HTTP → ALB → Spring Boot → JPA →
+RDS. This ensures the API, authentication, and partition routing all work
+correctly under load.
+
+### How it works
+
+```python
+# Environment variable set in the ECS task definition via Terraform
+API_URL_BATCH = os.getenv("API_URL_BATCH")
+#   → http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com/api/logs/batch
+
+BATCH_SIZE = 500   # logs per HTTP request
+
+# Flow:
+# 1. generate_logs()   — produces synthetic log records using data_generator.py
+# 2. transform_log()   — maps generator schema → API schema (serviceName, level, message, source)
+# 3. chunk_list()      — splits into 500-log batches
+# 4. POST /api/logs/batch — sends each batch to the ALB endpoint
+```
+
+### Environment configuration
+
+| Variable | Value (dev) | Set by |
+|---|---|---|
+| `API_URL_BATCH` | `http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com/api/logs/batch` | ECS task definition (`ecs/main.tf`) |
+
+In the ECS task definition this is configured as a plain environment variable
+(not a secret) because the ALB DNS name is not sensitive:
+
+```hcl
+environment = [
+  ...
+  { name = "API_URL_BATCH", value = var.api_url_batch },
+]
+```
+
+### Schedule
+
+EventBridge triggers this script **every hour at :00 UTC** (see Section 11).
+The data-engineering container starts, runs the script, and exits cleanly —
+no persistent process required.
+
+---
+
+## 8. Analytics Views — What Metabase Reads
 
 File: `data-engineering/db/dml/analytics.sql`
 
@@ -554,21 +713,34 @@ pre-placed error spikes in near-real time.
 
 ---
 
-## 8. Metabase Dashboarding
+## 9. Metabase Dashboarding
 
 Metabase is the business intelligence layer. It connects directly to
 PostgreSQL and queries the `vw_*` views like regular tables.
 
 ### First-Time Setup
 
-On first access (`http://localhost:3000`):
-1. Complete the setup wizard
-2. When prompted to add a database, enter:
-   - **Host**: `postgres` (Docker network hostname)
-   - **Port**: `5432`
-   - **Database**: value of `DB_NAME` from `.env`
-   - **Username / Password**: `DB_USERNAME` / `DB_PASSWORD`
-3. Metabase discovers all views and tables automatically
+**Local (Docker Compose)** — access at `http://localhost:3000`
+
+**AWS production** — access at `http://logstream-dev-alb-78023209.eu-west-1.elb.amazonaws.com:3000`
+
+On first access, complete the setup wizard. When prompted to add a database, enter:
+
+| Field | Local value | AWS value |
+|---|---|---|
+| Host | `postgres` (Docker network hostname) | RDS endpoint (from `terraform output rds_endpoint`) |
+| Port | `5432` | `5432` |
+| Database | value of `DB_NAME` | `logstream_db` |
+| Username | `DB_USERNAME` from `.env` | from Secrets Manager (`logstream/dev/db-credentials`) |
+| Password | `DB_PASSWORD` from `.env` | from Secrets Manager (`logstream/dev/db-credentials`) |
+
+> **AWS tip**: Metabase connects from inside the VPC so it reaches the RDS
+> private endpoint directly. No bastion or tunnel is needed — Metabase's ECS
+> task is in the same private subnet as RDS, and its security group has port
+> 5432 inbound allowed from the `metabase` SG.
+
+Metabase discovers all views and tables automatically after the connection
+is saved.
 
 ### How the Dashboard Works
 
@@ -599,7 +771,7 @@ from a small derived table instead of scanning millions of raw log rows.
 
 ---
 
-## 9. The REST API — Backend Capabilities
+## 10. The REST API — Backend Capabilities
 
 Base URL (local): `http://localhost:8080`  
 API Documentation: `http://localhost:8080/swagger-ui/index.html`
@@ -643,34 +815,71 @@ require a JWT bearer token in the `Authorization` header.
 
 ---
 
-## 10. Cron Schedule — The Full Automation Loop
+## 11. EventBridge Schedule — The Full Automation Loop
 
-The `data-engineering` container runs a cron daemon that fires four jobs:
+In the AWS deployment, the `data-engineering` container no longer runs a
+persistent cron daemon. Instead, **AWS EventBridge Scheduler** launches a
+fresh ECS Fargate task for each job on its own schedule, injects the specific
+Python command via `containerOverrides`, and the container executes that
+command and exits cleanly.
 
+This approach is more reliable than an in-container cron because:
+- Each invocation is a fresh isolated container (no state pollution)
+- EventBridge retries failed invocations automatically (up to 2 attempts)
+- CloudWatch captures logs per invocation with a clear stream prefix
+- No risk of the container crashing and silently killing all scheduled jobs
+
+### The 5 Schedules
+
+| Schedule Name | Command | Frequency | UTC Time |
+|---|---|---|---|
+| `etl-15min` | `etl_pipeline.py --mode standard` | Every 15 minutes | N/A |
+| `aggregate-hourly` | `etl_pipeline.py --mode hourly` | Every hour | :05 |
+| `push-logs-to-api` | `push_logs_to_api.py` | Every hour | :00 |
+| `aggregate-daily` | `etl_pipeline.py --mode daily` | Every day | 01:00 |
+| `retention-policy` | `retention_policy.py` | Every day | 02:00 |
+
+### How EventBridge passes the command
+
+Each EventBridge target fires with an `input` JSON payload that overrides the
+container's default command at runtime:
+
+```json
+{
+  "containerOverrides": [{
+    "name": "data-engineering",
+    "command": ["python", "/app/scripts/etl_pipeline.py", "--mode", "standard"]
+  }]
+}
 ```
-*/15 * * * *   etl_pipeline.py --mode standard   # every 15 min
-5    * * * *   etl_pipeline.py --mode hourly     # top of every hour (+5 min)
-0    1 * * *   etl_pipeline.py --mode daily      # 1:00 AM every day
-0    2 * * *   retention_policy.py               # 2:00 AM every day
-```
 
-The retention job runs **after** the daily aggregation (1 AM vs 2 AM) so that
-logs are counted into the daily totals before they are deleted.
+Terraform manages all five schedules in
+`devops/terraform/modules/eventbridge/main.tf` using a `for_each` map.
+
+### Ordering rationale
+
+The daily aggregation runs at **01:00** and the retention policy at **02:00**.
+This guarantees that every log from the previous day is counted into
+`log_metrics_daily` before the retention script deletes expired rows.
 
 ---
 
-## 11. Data Flow Summary (End to End)
+## 12. Data Flow Summary (End to End)
 
 ```
 Step 1 — Log Emission
   ─────────────────────────────────────────────────────────────────
-  An application (or the data generator) creates a log record:
+  An application (or push_logs_to_api.py) creates a log record:
   {id, timestamp, level, source, message, service_name, created_at}
 
 Step 2 — Ingestion
   ─────────────────────────────────────────────────────────────────
-  Via REST API:   POST /api/logs  (Spring Boot validates + saves)
-  Via direct SQL: INSERT INTO log_entries (data generator / ETL)
+  Via REST API (production path):
+    POST /api/logs/batch  →  ALB  →  Backend ECS (Spring Boot)
+    Backend validates + saves via JPA
+
+  Via direct SQL (ETL pipeline internal):
+    INSERT INTO log_entries  (ETL writes aggregation results)
 
   PostgreSQL routes the row to the correct daily partition:
     timestamp 2026-03-12  →  log_entries_y2026_03_12
@@ -681,34 +890,47 @@ Step 3 — Data sits in log_entries
   Analytics views (vw_*) query this table live and always see
   the latest data without any pipeline involvement.
 
-Step 4 — ETL Pipeline runs (cron)
+Step 4 — EventBridge fires scheduled ECS tasks
   ─────────────────────────────────────────────────────────────────
-  Every 15 min (standard):
+  Every 15 min (etl-15min / standard):
+    EventBridge → new Fargate task (containerOverrides: --mode standard)
     • Creates today's + tomorrow's partitions (if missing)
     • Reads last 24h of log_entries
     • Computes per-service error_rate, status
     • Writes → service_health_dashboard (truncate + reload)
+    Task exits cleanly.
 
-  Every hour at :05 (hourly):
+  Every hour at :00 (push-logs-to-api):
+    EventBridge → new Fargate task (containerOverrides: push_logs_to_api.py)
+    • Generates synthetic logs via data_generator.py
+    • POSTs in 500-log batches → ALB → /api/logs/batch → RDS
+    Task exits cleanly.
+
+  Every hour at :05 (aggregate-hourly):
+    EventBridge → new Fargate task (containerOverrides: --mode hourly)
     • Reads the previous complete hour from log_entries
     • Groups by service → total_count, error_count
-    • Writes → log_metrics_hourly (idempotent)
+    • Writes → log_metrics_hourly (idempotent delete-then-insert)
+    Task exits cleanly.
 
-  Every day at 1 AM (daily):
+  Every day at 01:00 (aggregate-daily):
+    EventBridge → new Fargate task (containerOverrides: --mode daily)
     • Reads the previous complete day from log_entries
     • Groups by service → total_count, error_count
     • Writes → log_metrics_daily (idempotent)
+    Task exits cleanly.
 
-  Every day at 2 AM (retention):
+  Every day at 02:00 (retention-policy):
+    EventBridge → new Fargate task (containerOverrides: retention_policy.py)
     • Reads retention_policies table
     • Deletes (or archives) logs older than their policy allows
-    • Drops empty partitions
+    • Drops empty old partitions
+    Task exits cleanly.
 
 Step 5 — Metabase Queries
   ─────────────────────────────────────────────────────────────────
-  A Metabase dashboard panel fires SELECT against a vw_* view.
-  PostgreSQL executes the view's SQL live against log_entries.
-  The result set is returned to Metabase and rendered as a chart.
+  Metabase (ECS Fargate, private subnet, :3000 via ALB) queries
+  the PostgreSQL vw_* views live against log_entries.
 
   For panels showing aggregated trends:
   Metabase queries log_metrics_hourly / log_metrics_daily
@@ -722,4 +944,14 @@ Step 6 — Engineer reads the dashboard
   • vw_recent_critical_events: what are the last 50 errors?
   • vw_silent_services: has any service gone quiet unexpectedly?
   • vw_activity_heatmap: what time of day is the system busiest?
+
+Step 7 — On-call access to raw data (AWS only)
+  ─────────────────────────────────────────────────────────────────
+  SSH tunnel via Bastion Host (EC2, Elastic IP: 18.200.108.251):
+    ssh -i ~/.ssh/logstream-bastion \
+        -L 5433:<rds-endpoint>:5432 \
+        -N -f ec2-user@18.200.108.251
+
+  Connect DBeaver / psql to localhost:5433
+  → Reaches RDS in private subnet without exposing it to the internet.
 ```
