@@ -12,6 +12,34 @@ venv/
 .env
 .DS_Store
 data-engineering/output/
-data-engineering/venv/ 
+data-engineering/venv/
 
 __init__.py
+
+# ── Terraform ──────────────────────────────────────────────────────────────
+# Local state and cache (never commit)
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfstate.d/
+
+# Plan files may contain sensitive values
+*.tfplan
+tfplan
+
+# Environment-specific variable files with real secrets/values
+# example.tfvars IS committed (safe template)
+dev.tfvars
+staging.tfvars
+prod.tfvars
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Crash log
+crash.log
+crash.*.log
