@@ -54,7 +54,7 @@ public class LogSearchAnalyticsTest extends BaseTest {
                 .queryParam("startDate", startDate)
                 .queryParam("endDate", endDate)
                 .when()
-                .get("/api/logs/analytics")
+                .get("/api/analytics/error-rate")
                 .then()
                 .statusCode(200);
         // Analytics is currently hardcoded to return null in the backend controller.
