@@ -22,8 +22,7 @@ load_dotenv()
 
 
 
-""" API_URL_BATCH = os.getenv("API_URL_BATCH") """
-API_URL_BATCH = ""
+API_URL_BATCH = os.getenv("API_URL_BATCH")
 BATCH_SIZE = 500
 
 
@@ -83,7 +82,7 @@ def main():
 
     services = list(SERVICES.keys())
     print("Generating logs...")
-    num_log = random.randint(50,200)
+    num_log = random.randint(50,10000)
     logs = generate_logs(services, num_logs=num_log, days=30)
 
     print(f"Generated {len(logs):,} logs")
