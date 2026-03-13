@@ -4,13 +4,13 @@ import com.logstream.model.LogEntry;
 import com.logstream.model.LogLevel;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -34,7 +34,7 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
 
     @Query("SELECT l.serviceName, l.level, COUNT(l) FROM LogEntry l GROUP BY l.serviceName, l.level")
     List<Object[]> countGroupByServiceAndLevel();
-  
+
     @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.level = 'ERROR' AND l.createdAt >= :since GROUP BY l.serviceName")
     List<Object[]> countErrorsByServiceAndCreatedAtAfter(@Param("since") Instant since);
 
@@ -45,15 +45,15 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
     @Query("SELECT l.serviceName, COUNT(l) FROM LogEntry l WHERE l.createdAt >= :since GROUP BY l.serviceName")
     List<Object[]> countByServiceAndCreatedAtAfter(@Param("since") Instant since);
 
-    @Query(value = "SELECT date_trunc('hour', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
-            + "FROM log_entries WHERE level = 'ERROR' AND created_at >= :start AND created_at <= :endTime "
+    @Query(value = "SELECT date_trunc('hour', timestamp) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE level = 'ERROR' AND timestamp >= :start AND timestamp <= :endTime "
             + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
     List<Object[]> findAllServicesHourlyErrors(
             @Param("start") Instant start,
             @Param("endTime") Instant end);
 
-    @Query(value = "SELECT date_trunc('day', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
-            + "FROM log_entries WHERE level = 'ERROR' AND created_at >= :start AND created_at <= :endTime "
+    @Query(value = "SELECT date_trunc('day', timestamp) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE level = 'ERROR' AND timestamp >= :start AND timestamp <= :endTime "
             + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
     List<Object[]> findAllServicesDailyErrors(
             @Param("start") Instant start,
@@ -75,33 +75,33 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, UUID> {
             @Param("start") Instant start,
             @Param("end") Instant end);
 
-    @Query(value = "SELECT date_trunc('hour', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+    @Query(value = "SELECT date_trunc('hour', timestamp) AS time_bucket, service_name, COUNT(*) AS cnt "
             + "FROM log_entries WHERE service_name = :serviceName "
-            + "AND created_at >= :start AND created_at <= :endTime "
+            + "AND timestamp >= :start AND timestamp <= :endTime "
             + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
     List<Object[]> findHourlyVolume(
             @Param("serviceName") String serviceName,
             @Param("start") Instant start,
             @Param("endTime") Instant end);
 
-    @Query(value = "SELECT date_trunc('day', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
+    @Query(value = "SELECT date_trunc('day', timestamp) AS time_bucket, service_name, COUNT(*) AS cnt "
             + "FROM log_entries WHERE service_name = :serviceName "
-            + "AND created_at >= :start AND created_at <= :endTime "
+            + "AND timestamp >= :start AND timestamp <= :endTime "
             + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
     List<Object[]> findDailyVolume(
             @Param("serviceName") String serviceName,
             @Param("start") Instant start,
             @Param("endTime") Instant end);
 
-    @Query(value = "SELECT date_trunc('hour', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
-            + "FROM log_entries WHERE created_at >= :start AND created_at <= :endTime "
+    @Query(value = "SELECT date_trunc('hour', timestamp) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE timestamp >= :start AND timestamp <= :endTime "
             + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
     List<Object[]> findAllServicesHourlyVolume(
             @Param("start") Instant start,
             @Param("endTime") Instant end);
 
-    @Query(value = "SELECT date_trunc('day', created_at) AS time_bucket, service_name, COUNT(*) AS cnt "
-            + "FROM log_entries WHERE created_at >= :start AND created_at <= :endTime "
+    @Query(value = "SELECT date_trunc('day', timestamp) AS time_bucket, service_name, COUNT(*) AS cnt "
+            + "FROM log_entries WHERE timestamp >= :start AND timestamp <= :endTime "
             + "GROUP BY time_bucket, service_name ORDER BY time_bucket ASC", nativeQuery = true)
     List<Object[]> findAllServicesDailyVolume(
             @Param("start") Instant start,
