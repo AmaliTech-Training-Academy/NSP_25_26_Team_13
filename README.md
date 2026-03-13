@@ -50,6 +50,7 @@ docker compose ps
 
 | Doc | Description |
 |---|---|
+| [docs/Documentation.md](docs/Documentation.md) | Centralized technical documentation: architecture, APIs, analytics, health dashboard, database, ETL, DevOps, and collaboration guidelines |
 | [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) | Full step-by-step local development setup |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker Compose deployment guide |
 | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Complete end-to-end platform guide (architecture, data flow, APIs, and dashboards) |
