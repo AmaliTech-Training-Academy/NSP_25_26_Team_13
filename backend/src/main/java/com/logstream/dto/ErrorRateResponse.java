@@ -2,6 +2,7 @@ package com.logstream.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
+import java.time.Instant;
 
 @Data
 @NoArgsConstructor
@@ -21,4 +22,6 @@ public class ErrorRateResponse {
 
     @Schema(description = "Total number of logs in the last 24 hours", example = "1000")
     private long totalCount;
+
+
 }

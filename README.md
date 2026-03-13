@@ -50,13 +50,25 @@ docker compose ps
 
 | Doc | Description |
 |---|---|
+| [docs/Documentation.md](docs/Documentation.md) | Centralized technical documentation: architecture, APIs, analytics, health dashboard, database, ETL, DevOps, and collaboration guidelines |
 | [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) | Full step-by-step local development setup |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker Compose deployment guide |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Complete end-to-end platform guide (architecture, data flow, APIs, and dashboards) |
+| [devops/DEVOPS.md](devops/DEVOPS.md) | DevOps architecture, Terraform modules, CI/CD workflows, and operational runbooks |
+| [qa/QA_STRATEGY.md](qa/QA_STRATEGY.md) | QA strategy, integration test approach, and validation roadmap |
+| [backend/SUMMARY.md](backend/SUMMARY.md) | Backend project summary (modules, architecture, and key capabilities) |
+| [backend/IMPLEMENTATION_SUMMARY.md](backend/IMPLEMENTATION_SUMMARY.md) | Backend dashboard/frontend implementation details and delivered features |
+| [data-engineering/docs/Data Engineer-1.md](data-engineering/docs/Data%20Engineer-1.md) | Database schemas, ETL/pipeline design, indexing, and setup notes |
+| [data-engineering/docs/data-engineer-2.md](data-engineering/docs/data-engineer-2.md) | Data analysis deliverables, sample data work, and dashboard contributions |
+| [data-engineering/scripts/dashboard/dashboard-steps.md](data-engineering/scripts/dashboard/dashboard-steps.md) | Step-by-step dashboard and analytics views setup guide |
 
 ## Team
 
 | Area | Responsibility |
 |---|---|
-| A | Log Ingestion · Bulk Import |
-| B | Search · Retention Policies |
-| C | Auth · Analytics |
+| Backend Developer A | Log ingestion, validation, and bulk import |
+| Backend Developer B | Search, pagination, and retention cleanup |
+| Backend Developer C | Analytics APIs and health dashboard |
+| Data Engineer 1 | Database design, indexing, and ETL pipeline |
+| Data Engineer 2 | Sample data generation, analytics queries, and visualizations |
+| DevOps Engineer | Docker, CI/CD, environment config, and deployment docs |

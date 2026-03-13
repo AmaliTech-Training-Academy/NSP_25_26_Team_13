@@ -302,10 +302,24 @@ public class WebController {
         
         model.addAttribute("selectedService", service);
         model.addAttribute("errorRates", errorRates);
-        model.addAttribute("commonErrors", analyticsService.getCommonErrors(service, 10, startTime, endTime));
-        model.addAttribute("logVolume", analyticsService.getLogVolumeTimeSeries(service, granularity, startTime, endTime));
+        
+        boolean allServices = service == null || service.isEmpty();
+        
+        if (allServices) {
+            model.addAttribute("allServicesLogVolume", analyticsService.getAllServicesLogVolume(granularity, startTime, endTime));
+            model.addAttribute("allServicesCommonErrors", analyticsService.getAllServicesCommonErrors(10, startTime, endTime));
+            model.addAttribute("commonErrors", null);
+            model.addAttribute("logVolume", null);
+        } else {
+            model.addAttribute("commonErrors", analyticsService.getCommonErrors(service, 10, startTime, endTime));
+            model.addAttribute("logVolume", analyticsService.getLogVolumeTimeSeries(service, granularity, startTime, endTime));
+            model.addAttribute("allServicesLogVolume", null);
+            model.addAttribute("allServicesCommonErrors", null);
+        }
+        
         model.addAttribute("services", errorRates);
         model.addAttribute("granularity", granularity);
+        model.addAttribute("allServices", allServices);
         return "analytics";
     }
 

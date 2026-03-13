@@ -126,7 +126,7 @@ function getStatusBadge(status) {
     const badges = {
         'GREEN': '<i class="fas fa-check mr-1"></i>Healthy',
         'YELLOW': '<i class="fas fa-exclamation mr-1"></i>Degraded',
-        'RED': '<i class="fas fa-times mr-1"></i>Unhealthy',
+        'RED': '<i class="fas fa-times mr-1"></i>Critical',
         'UNKNOWN': '<i class="fas fa-question mr-1"></i>Unknown'
     };
     return badges[status] || badges['UNKNOWN'];
