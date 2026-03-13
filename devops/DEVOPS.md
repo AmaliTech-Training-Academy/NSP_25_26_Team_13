@@ -1,7 +1,6 @@
 # LogStream — DevOps Documentation
 
-> Author: DevOps Engineer — NSP 25/26 Team 13  
-> AWS Account: `205930639565` | Region: `eu-west-1`  
+> Author: DevOps Engineer — NSP 25/26 Team 13
 > Last updated: 2026
 
 ---
@@ -41,46 +40,8 @@
 
 ## 1. Architecture Overview
 
-```
-Internet
-   │
-   ▼
-┌────────────────────────────────────────────┐
-│  ALB (public)                              │
-│  :80  → Backend Blue/Green TG             │
-│  :8080 → Backend Green TG (CodeDeploy)     │
-│  :3000 → Metabase TG                      │
-└────────────────────────────────────────────┘
-   │                        │
-   ▼                        ▼
-┌──────────────┐    ┌───────────────────┐
-│ Backend ECS  │    │  Metabase ECS     │
-│ (private)    │    │  (private)        │
-│ Spring Boot  │    │  metabase/metabase│
-│ :8080        │    │  :3000            │
-└──────┬───────┘    └────────┬──────────┘
-       │                     │
-       ▼                     ▼
-┌─────────────────────────────────────┐
-│  RDS PostgreSQL 16 (private)        │
-│  logstream_db + metabase DB         │
-└─────────────────────────────────────┘
+![Architecture Diagram](Architecture_Diagram.png)
 
-EventBridge Scheduler
-   │
-   ▼
-┌───────────────────────────────────────────────────────┐
-│  Data-Engineering ECS Task (on-demand, no service)    │
-│  Fargate: 256 CPU / 512 MB                            │
-│  Runs: etl_pipeline.py | push_logs_to_api.py          │
-│         | retention_policy.py                         │
-└───────────────────────────────────────────────────────┘
-
-GitHub Actions (CI/CD)
-   │  OIDC (no long-lived AWS keys)
-   ▼
-ECR ──→ CodeDeploy (Blue/Green) ──→ Backend ECS Service
-```
 
 **Key design principles:**
 - All ECS tasks run in **private subnets**. Outbound traffic goes via NAT Gateway.
