@@ -36,6 +36,8 @@ public class AnalyticsService {
                 .collect(Collectors.toList());
     }
 
+
+
     private ErrorRateResponse buildErrorRate(String service, Map<String, Long> errorMap, Map<String, Long> totalMap) {
         long errorCount = errorMap.getOrDefault(service, 0L);
         long totalCount = totalMap.getOrDefault(service, 0L);
@@ -79,6 +81,42 @@ public class AnalyticsService {
                 .collect(Collectors.toList());
 
         return responses;
+    }
+
+    /**
+     * Returns common errors for ALL services aggregated by message and service.
+     * Returns a map where key is service name and value is list of CommonErrorResponse.
+     * Time range defaults to last 24 hours if not specified.
+     */
+    public Map<String, List<CommonErrorResponse>> getAllServicesCommonErrors(Integer limit,
+                                                                            Instant startTime, Instant endTime) {
+        int effectiveLimit = resolveLimit(limit);
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = startTime != null ? startTime : end.minus(24, ChronoUnit.HOURS);
+
+        List<Object[]> results = logEntryRepository.findAllServicesCommonErrors(start, end);
+
+        Map<String, List<CommonErrorResponse>> serviceErrors = new LinkedHashMap<>();
+        for (Object[] row : results) {
+            String service = (String) row[0];
+            String message = (String) row[1];
+            Long count = (Long) row[2];
+
+            serviceErrors.computeIfAbsent(service, k -> new ArrayList<>())
+                    .add(CommonErrorResponse.builder()
+                            .message(message)
+                            .count(count)
+                            .build());
+        }
+
+        for (Map.Entry<String, List<CommonErrorResponse>> entry : serviceErrors.entrySet()) {
+            List<CommonErrorResponse> limited = entry.getValue().stream()
+                    .limit(effectiveLimit)
+                    .collect(Collectors.toList());
+            entry.setValue(limited);
+        }
+
+        return serviceErrors;
     }
 
     private int resolveLimit(Integer limit) {
@@ -163,9 +201,68 @@ public class AnalyticsService {
         return instant.truncatedTo(ChronoUnit.DAYS);
     }
 
+    /**
+     * Returns log volume time series for ALL services aggregated by hour or day.
+     * Returns a map where key is service name and value is list of LogVolumeResponse.
+     * Time range defaults to last 7 days if not specified.
+     */
+    public Map<String, List<LogVolumeResponse>> getAllServicesLogVolume(String granularity,
+                                                                        Instant startTime, Instant endTime) {
+        if (!VALID_GRANULARITIES.contains(granularity)) {
+            throw new IllegalArgumentException(
+                    "Granularity must be 'hour' or 'day'");
+        }
 
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = startTime != null ? startTime
+                : end.minus(DEFAULT_VOLUME_DAYS, ChronoUnit.DAYS);
 
+        List<Object[]> results = "hour".equals(granularity)
+                ? logEntryRepository.findAllServicesHourlyVolume(start, end)
+                : logEntryRepository.findAllServicesDailyVolume(start, end);
 
+        Map<String, Map<Instant, Long>> serviceData = new LinkedHashMap<>();
+        for (Object[] row : results) {
+            Instant bucket = toInstant(row[0]);
+            String service = (String) row[1];
+            Long count = ((Number) row[2]).longValue();
 
+            serviceData.computeIfAbsent(service, k -> new LinkedHashMap<>())
+                    .put(bucket, count);
+        }
+
+        return fillGapsForAllServices(granularity, start, end, serviceData);
+    }
+
+    private Map<String, List<LogVolumeResponse>> fillGapsForAllServices(String granularity,
+                                                                         Instant start, Instant end,
+                                                                         Map<String, Map<Instant, Long>> serviceData) {
+        ChronoUnit unit = "hour".equals(granularity) ? ChronoUnit.HOURS : ChronoUnit.DAYS;
+        Instant truncatedStart = truncate(start, granularity);
+
+        Set<Instant> allBuckets = new LinkedHashSet<>();
+        for (Instant current = truncatedStart; !current.isAfter(end); current = current.plus(1, unit)) {
+            allBuckets.add(current);
+        }
+
+        Map<String, List<LogVolumeResponse>> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<Instant, Long>> entry : serviceData.entrySet()) {
+            String service = entry.getKey();
+            Map<Instant, Long> countsByBucket = entry.getValue();
+
+            List<LogVolumeResponse> responses = new ArrayList<>();
+            for (Instant bucket : allBuckets) {
+                long count = countsByBucket.getOrDefault(bucket, 0L);
+                responses.add(LogVolumeResponse.builder()
+                        .timestamp(bucket)
+                        .service(service)
+                        .count(count)
+                        .build());
+            }
+            result.put(service, responses);
+        }
+
+        return result;
+    }
 
 }
